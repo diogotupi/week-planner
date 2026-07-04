@@ -5,15 +5,24 @@ Um planejador semanal simples, minimalista e fácil de usar — pensado para ser
 ## Funcionalidades
 
 - **7 dias da semana** — de segunda a domingo
+- **Vários dias por tarefa** — ex: Academia em Seg, Qua e Sex
 - **Adicionar tarefas** em cada dia com três modos de tempo:
   - **Definir tempo** — duração sem horário fixo (ex: 1h30)
   - **Definir horário** — início e fim da tarefa
-  - **Dia todo** — dedicar o dia inteiro
+  - **Dia todo** — dedica o dia inteiro
 - **Toda semana?** — tarefas recorrentes que aparecem toda semana no mesmo dia
+- **Login** — cada usuário tem suas próprias tarefas
 - **Checkbox animado** — animação ao marcar tarefa como concluída
 - **Persistência** — dados salvos automaticamente no navegador
 
-## Como usar
+### Usuários de teste
+
+| Login  | Senha   |
+|--------|---------|
+| camila | 123456  |
+| diogo  | 123456  |
+
+## Como usar localmente
 
 ```bash
 npm install
@@ -22,15 +31,16 @@ npm run dev
 
 Abra [http://localhost:5173](http://localhost:5173) no navegador.
 
-## Deploy online (grátis)
+## Site online (GitHub Pages)
 
-O site já está pronto na branch `gh-pages`. Para ativar:
+**URL:** https://diogotupi.github.io/week-planner/
 
-1. Abra: https://github.com/diogotupi/week-planner/settings/pages
-2. Em **Branch**, selecione `gh-pages` e pasta `/ (root)`
-3. Clique em **Save**
+### Configuração do GitHub Pages
 
-Em ~1 minuto o app fica disponível em:
-**https://diogotupi.github.io/week-planner/**
+Em https://github.com/diogotupi/week-planner/settings/pages escolha **uma** opção:
 
-Funciona no celular, sem senha e de graça.
+**Opção A (recomendada):** Branch `gh-pages` → pasta `/ (root)`
+
+**Opção B:** Branch `main` → pasta `/docs`
+
+> Se estiver em `main` + `/ (root)`, o site não funciona — ele mostra o código-fonte em vez do app.
