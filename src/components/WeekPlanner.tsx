@@ -4,17 +4,30 @@ import { DayColumn } from './DayColumn';
 
 const ALL_DAYS: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6];
 
-export function WeekPlanner() {
-  const { addTask, toggleTask, removeTask, getTasksForDay, currentWeek } =
-    useTasks();
+interface WeekPlannerProps {
+  username: string;
+  displayName: string;
+  onLogout: () => void;
+}
+
+export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProps) {
+  const { addTasks, toggleTask, removeTask, getTasksForDay, currentWeek } =
+    useTasks(username);
 
   return (
     <div className="planner">
       <header className="planner-header">
-        <h1 className="planner-title">Planejador da Semana</h1>
-        <p className="planner-subtitle">
-          Organize suas tarefas de segunda a domingo
-        </p>
+        <div className="planner-top">
+          <div>
+            <h1 className="planner-title">Planejador da Semana</h1>
+            <p className="planner-subtitle">
+              Olá, {displayName}! Organize suas tarefas de segunda a domingo.
+            </p>
+          </div>
+          <button type="button" className="btn-logout" onClick={onLogout}>
+            Sair
+          </button>
+        </div>
       </header>
 
       <div className="days-grid">
@@ -24,7 +37,7 @@ export function WeekPlanner() {
             day={day}
             tasks={getTasksForDay(day)}
             currentWeek={currentWeek}
-            onAdd={addTask}
+            onAdd={addTasks}
             onToggle={toggleTask}
             onRemove={removeTask}
           />

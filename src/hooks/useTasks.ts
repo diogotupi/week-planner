@@ -2,35 +2,61 @@ import { useCallback, useEffect, useState } from 'react';
 import type { DayOfWeek, Task } from '../types';
 import { generateId, getWeekKey } from '../utils';
 
-const STORAGE_KEY = 'week-planner-tasks';
+function storageKey(username: string) {
+  return `week-planner-tasks-${username}`;
+}
 
-function loadTasks(): Task[] {
+function loadTasks(username: string): Task[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(username));
     return raw ? (JSON.parse(raw) as Task[]) : [];
   } catch {
     return [];
   }
 }
 
-export function useTasks() {
-  const [tasks, setTasks] = useState<Task[]>(loadTasks);
+export interface NewTaskInput {
+  text: string;
+  days: DayOfWeek[];
+  weekly: boolean;
+  timeMode: Task['timeMode'];
+  duration?: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+export function useTasks(username: string) {
+  const [tasks, setTasks] = useState<Task[]>(() => loadTasks(username));
   const currentWeek = getWeekKey();
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  }, [tasks]);
+    setTasks(loadTasks(username));
+  }, [username]);
 
-  const addTask = useCallback(
-    (task: Omit<Task, 'id' | 'createdWeek' | 'completedWeeks'>) => {
+  useEffect(() => {
+    localStorage.setItem(storageKey(username), JSON.stringify(tasks));
+  }, [tasks, username]);
+
+  const addTasks = useCallback(
+    (input: NewTaskInput) => {
+      const base = {
+        text: input.text,
+        weekly: input.weekly,
+        timeMode: input.timeMode,
+        duration: input.duration,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        createdWeek: currentWeek,
+        completedWeeks: [] as string[],
+      };
+
       setTasks((prev) => [
         ...prev,
-        {
-          ...task,
+        ...input.days.map((day) => ({
+          ...base,
           id: generateId(),
-          createdWeek: currentWeek,
-          completedWeeks: [],
-        },
+          day,
+        })),
       ]);
     },
     [currentWeek],
@@ -68,5 +94,5 @@ export function useTasks() {
     [tasks, currentWeek],
   );
 
-  return { tasks, addTask, toggleTask, removeTask, getTasksForDay, currentWeek };
+  return { tasks, addTasks, toggleTask, removeTask, getTasksForDay, currentWeek };
 }

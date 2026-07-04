@@ -1,24 +1,15 @@
 import { useState } from 'react';
-import type { DayOfWeek, Task, TimeMode } from '../types';
+import type { DayOfWeek, Task } from '../types';
 import { DAYS } from '../types';
+import type { NewTaskInput } from '../hooks/useTasks';
 import { AddTaskModal } from './AddTaskModal';
 import { TaskItem } from './TaskItem';
-
-interface NewTask {
-  text: string;
-  day: DayOfWeek;
-  weekly: boolean;
-  timeMode: TimeMode;
-  duration?: string;
-  startTime?: string;
-  endTime?: string;
-}
 
 interface DayColumnProps {
   day: DayOfWeek;
   tasks: Task[];
   currentWeek: string;
-  onAdd: (task: NewTask) => void;
+  onAdd: (task: NewTaskInput) => void;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
 }
@@ -67,7 +58,7 @@ export function DayColumn({
 
       {showModal && (
         <AddTaskModal
-          day={day}
+          initialDay={day}
           onClose={() => setShowModal(false)}
           onAdd={onAdd}
         />
