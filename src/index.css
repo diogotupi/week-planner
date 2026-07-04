@@ -1,0 +1,561 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --text: #1a1a1a;
+  --text-secondary: #5c5c5c;
+  --border: #e0ddd6;
+  --accent: #2d6a4f;
+  --accent-light: #d8f3dc;
+  --accent-hover: #1b4332;
+  --today: #fff8e7;
+  --today-border: #e9c46a;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --radius: 14px;
+  --font: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+html {
+  font-size: 18px;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Planner layout ── */
+
+.planner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+}
+
+.planner-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.planner-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.planner-subtitle {
+  font-size: 1.15rem;
+  color: var(--text-secondary);
+  margin-top: 0.4rem;
+}
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 1100px) {
+  .days-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .days-grid {
+    grid-template-columns: 1fr;
+  }
+
+  html {
+    font-size: 17px;
+  }
+}
+
+/* ── Day column ── */
+
+.day-column {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  box-shadow: var(--shadow);
+}
+
+.day-column.today {
+  background: var(--today);
+  border-color: var(--today-border);
+}
+
+.day-header {
+  padding: 1.1rem 1rem 0.8rem;
+  border-bottom: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.day-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.today-badge {
+  background: var(--today-border);
+  color: #5c4a1a;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+}
+
+.day-tasks {
+  flex: 1;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow-y: auto;
+}
+
+.empty-day {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 2rem 0.5rem;
+  font-style: italic;
+}
+
+.add-btn {
+  margin: 0.75rem;
+  padding: 0.85rem;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.add-btn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+
+.add-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Task item ── */
+
+.task-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  transition: background 0.3s, border-color 0.3s, transform 0.3s;
+}
+
+.task-item.completed {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+
+.task-item.celebrate {
+  animation: task-pop 0.5s ease;
+}
+
+@keyframes task-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.04); }
+  60% { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+
+.task-checkbox {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 2.5px solid var(--text-secondary);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  padding: 0;
+}
+
+.task-checkbox:hover {
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+
+.task-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: check-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes check-bounce {
+  0% { transform: scale(0.6); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.check-icon {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+.check-path {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  transition: stroke-dashoffset 0.4s ease 0.1s;
+}
+
+.task-checkbox.checked .check-path {
+  stroke-dashoffset: 0;
+}
+
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-text {
+  font-size: 1.05rem;
+  font-weight: 500;
+  word-break: break-word;
+  transition: opacity 0.3s, text-decoration-color 0.3s;
+}
+
+.task-item.completed .task-text {
+  text-decoration: line-through;
+  text-decoration-color: var(--accent);
+  opacity: 0.65;
+}
+
+.task-time {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-top: 0.2rem;
+}
+
+.task-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 0.1rem 0.5rem;
+  border-radius: 20px;
+}
+
+.task-remove {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.task-item:hover .task-remove,
+.task-remove:focus-visible {
+  opacity: 1;
+}
+
+.task-remove:hover {
+  background: #fde8e8;
+  color: #c0392b;
+}
+
+/* ── Confetti animation ── */
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  animation: confetti-fly 0.7s ease-out forwards;
+}
+
+.confetti-piece.c0 { background: #2d6a4f; --angle: 0deg; }
+.confetti-piece.c1 { background: #e9c46a; --angle: 45deg; }
+.confetti-piece.c2 { background: #e76f51; --angle: 90deg; }
+.confetti-piece.c3 { background: #264653; --angle: 135deg; }
+.confetti-piece.c4 { background: #2a9d8f; --angle: 180deg; }
+.confetti-piece.c5 { background: #f4a261; --angle: 225deg; }
+.confetti-piece.c6 { background: #e63946; --angle: 270deg; }
+.confetti-piece.c7 { background: #457b9d; --angle: 315deg; }
+
+@keyframes confetti-fly {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-40px);
+    opacity: 0;
+  }
+}
+
+/* ── Modal ── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+  animation: fade-in 0.2s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+  animation: slide-up 0.25s ease;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.field-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 0.25rem;
+}
+
+.field-input,
+.field-select {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-family: var(--font);
+  font-size: 1.05rem;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+
+.field-input:focus,
+.field-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field-error {
+  color: #c0392b;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0;
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.checkbox-row input[type='checkbox'] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.optional-tag {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: var(--bg);
+  padding: 0.1rem 0.5rem;
+  border-radius: 20px;
+}
+
+.section-label {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+.section-hint {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.time-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.time-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 1rem 1.1rem;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.time-option:hover {
+  border-color: var(--accent);
+}
+
+.time-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.option-icon {
+  font-size: 1.3rem;
+}
+
+.option-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.option-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.time-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.btn-primary,
+.btn-secondary {
+  flex: 1;
+  padding: 0.95rem;
+  font-family: var(--font);
+  font-size: 1.05rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--bg);
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
