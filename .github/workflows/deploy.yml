@@ -35,16 +35,20 @@ jobs:
           publish_dir: ./dist
           force_orphan: true
 
-      - name: Copiar build para pasta docs (alternativa)
+      - name: Publicar na raiz da main (config atual do Pages)
         run: |
+          cp dist/index.html index.html
+          rm -rf assets
+          cp -r dist/assets assets
+          touch .nojekyll
           rm -rf docs
           cp -r dist docs
           touch docs/.nojekyll
 
-      - name: Commit docs na main
+      - name: Commit site compilado
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs
-          git diff --staged --quiet || git commit -m "deploy: atualiza site em docs/"
+          git add index.html assets .nojekyll docs
+          git diff --staged --quiet || git commit -m "deploy: atualiza site compilado"
           git push
