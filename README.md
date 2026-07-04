@@ -22,9 +22,15 @@ npm run dev
 
 Abra [http://localhost:5173](http://localhost:5173) no navegador.
 
-## Build
+## Deploy online (grátis)
 
-```bash
-npm run build
-npm run preview
-```
+O site já está pronto na branch `gh-pages`. Para ativar:
+
+1. Abra: https://github.com/diogotupi/week-planner/settings/pages
+2. Em **Branch**, selecione `gh-pages` e pasta `/ (root)`
+3. Clique em **Save**
+
+Em ~1 minuto o app fica disponível em:
+**https://diogotupi.github.io/week-planner/**
+
+Funciona no celular, sem senha e de graça.
