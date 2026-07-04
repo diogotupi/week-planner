@@ -35,12 +35,19 @@ Abra [http://localhost:5173](http://localhost:5173) no navegador.
 
 **URL:** https://diogotupi.github.io/week-planner/
 
-### Configuração do GitHub Pages
+### ⚠️ Configuração necessária (1 passo)
 
-Em https://github.com/diogotupi/week-planner/settings/pages escolha **uma** opção:
+O GitHub Pages provavelmente está apontando para a branch **`main`**, que tem o código-fonte — por isso o site não carrega.
 
-**Opção A (recomendada):** Branch `gh-pages` → pasta `/ (root)`
+1. Abra: **https://github.com/diogotupi/week-planner/settings/pages**
+2. Em **Branch**, troque de `main` para **`gh-pages`**
+3. Deixe a pasta como **`/ (root)`**
+4. Clique em **Save**
+5. Aguarde ~1 minuto e abra o link acima no celular
 
-**Opção B:** Branch `main` → pasta `/docs`
+### Login no app
 
-> Se estiver em `main` + `/ (root)`, o site não funciona — ele mostra o código-fonte em vez do app.
+| Login  | Senha   |
+|--------|---------|
+| camila | 123456  |
+| diogo  | 123456  |
