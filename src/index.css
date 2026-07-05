@@ -377,6 +377,8 @@ body {
   border-radius: 999px;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .task-actions {
