@@ -1,4 +1,4 @@
-import type { Task } from './types';
+import type { DayOfWeek, Task } from './types';
 
 export function getWeekKey(date = new Date()): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -17,11 +17,33 @@ export function isTaskVisible(
   return weekly || createdWeek === currentWeek;
 }
 
+export function getDateKey(date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function getDateForDayOfWeek(day: DayOfWeek, ref = new Date()): string {
+  const monday = new Date(ref);
+  const dow = monday.getDay();
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  monday.setDate(monday.getDate() + mondayOffset);
+  monday.setHours(0, 0, 0, 0);
+
+  const target = new Date(monday);
+  target.setDate(monday.getDate() + day);
+  return getDateKey(target);
+}
+
 export function isTaskCompleted(
-  completedWeeks: string[],
-  currentWeek: string,
+  completedDates: string[],
+  taskDay: DayOfWeek,
+  ref = new Date(),
 ): boolean {
-  return completedWeeks.includes(currentWeek);
+  const taskDate = getDateForDayOfWeek(taskDay, ref);
+  const today = getDateKey(ref);
+  return today === taskDate && completedDates.includes(taskDate);
 }
 
 export function formatDuration(value: string): string {

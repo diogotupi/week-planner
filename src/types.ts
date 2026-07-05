@@ -12,7 +12,7 @@ export interface Task {
   startTime?: string;
   endTime?: string;
   createdWeek: string;
-  completedWeeks: string[];
+  completedDates: string[];
   groupId?: string;
 }
 

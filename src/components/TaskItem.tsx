@@ -9,7 +9,6 @@ import {
 
 interface TaskItemProps {
   task: Task;
-  currentWeek: string;
   isRunning: boolean;
   remainingMs: number;
   canStartTimer: boolean;
@@ -35,7 +34,6 @@ function getTimeLabel(task: Task): string {
 
 export function TaskItem({
   task,
-  currentWeek,
   isRunning,
   remainingMs,
   canStartTimer,
@@ -47,7 +45,7 @@ export function TaskItem({
 }: TaskItemProps) {
   const [animating, setAnimating] = useState(false);
   const wasRunning = useRef(false);
-  const completed = isTaskCompleted(task.completedWeeks, currentWeek);
+  const completed = isTaskCompleted(task.completedDates, task.day);
   const timeLabel = getTimeLabel(task);
   const hasDuration = task.timeMode === 'duration' && getTaskDurationMinutes(task) !== null;
 

@@ -1,16 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DayOfWeek, Task } from '../types';
-import { assignLegacyGroupIds, generateId, getWeekKey } from '../utils';
+import { assignLegacyGroupIds, generateId, getDateForDayOfWeek, getDateKey, getWeekKey } from '../utils';
 
 function storageKey(username: string) {
   return `week-planner-tasks-${username}`;
+}
+
+function migrateTask(task: Task & { completedWeeks?: string[] }): Task {
+  if (task.completedDates) return task;
+
+  const completedDates: string[] = [];
+  const legacyWeeks = task.completedWeeks ?? [];
+
+  if (legacyWeeks.includes(getWeekKey())) {
+    const today = new Date();
+    const todayDay = today.getDay() === 0 ? 6 : (today.getDay() - 1) as DayOfWeek;
+    if (task.day === todayDay) {
+      completedDates.push(getDateKey(today));
+    }
+  }
+
+  const { completedWeeks: _, ...rest } = task;
+  return { ...rest, completedDates };
 }
 
 function loadTasks(username: string): Task[] {
   try {
     const raw = localStorage.getItem(storageKey(username));
     const tasks = raw ? (JSON.parse(raw) as Task[]) : [];
-    return assignLegacyGroupIds(tasks);
+    return assignLegacyGroupIds(tasks.map(migrateTask));
   } catch {
     return [];
   }
@@ -30,6 +48,7 @@ export interface NewTaskInput {
 
 export function useTasks(username: string) {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks(username));
+  const [todayKey, setTodayKey] = useState(() => getDateKey());
   const currentWeek = getWeekKey();
 
   useEffect(() => {
@@ -39,6 +58,22 @@ export function useTasks(username: string) {
   useEffect(() => {
     localStorage.setItem(storageKey(username), JSON.stringify(tasks));
   }, [tasks, username]);
+
+  useEffect(() => {
+    let timerId = 0;
+
+    function scheduleMidnightRefresh() {
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0);
+      timerId = window.setTimeout(() => {
+        setTodayKey(getDateKey());
+      }, midnight.getTime() - now.getTime());
+    }
+
+    scheduleMidnightRefresh();
+    return () => clearTimeout(timerId);
+  }, [todayKey]);
 
   const addTasks = useCallback(
     (input: NewTaskInput) => {
@@ -51,7 +86,7 @@ export function useTasks(username: string) {
         startTime: input.startTime,
         endTime: input.endTime,
         createdWeek: currentWeek,
-        completedWeeks: [] as string[],
+        completedDates: [] as string[],
         ...(groupId ? { groupId } : {}),
       };
 
@@ -72,17 +107,18 @@ export function useTasks(username: string) {
       setTasks((prev) =>
         prev.map((task) => {
           if (task.id !== id) return task;
-          const done = task.completedWeeks.includes(currentWeek);
+          const taskDate = getDateForDayOfWeek(task.day);
+          const done = task.completedDates.includes(taskDate);
           return {
             ...task,
-            completedWeeks: done
-              ? task.completedWeeks.filter((w) => w !== currentWeek)
-              : [...task.completedWeeks, currentWeek],
+            completedDates: done
+              ? task.completedDates.filter((d) => d !== taskDate)
+              : [...task.completedDates, taskDate],
           };
         }),
       );
     },
-    [currentWeek],
+    [],
   );
 
   const completeTask = useCallback(
@@ -90,15 +126,16 @@ export function useTasks(username: string) {
       setTasks((prev) =>
         prev.map((task) => {
           if (task.id !== id) return task;
-          if (task.completedWeeks.includes(currentWeek)) return task;
+          const taskDate = getDateForDayOfWeek(task.day);
+          if (task.completedDates.includes(taskDate)) return task;
           return {
             ...task,
-            completedWeeks: [...task.completedWeeks, currentWeek],
+            completedDates: [...task.completedDates, taskDate],
           };
         }),
       );
     },
-    [currentWeek],
+    [],
   );
 
   const removeTask = useCallback((id: string) => {
@@ -146,5 +183,5 @@ export function useTasks(username: string) {
     [tasks, currentWeek],
   );
 
-  return { tasks, addTasks, updateTask, toggleTask, completeTask, removeTask, getTasksForDay, currentWeek };
+  return { tasks, addTasks, updateTask, toggleTask, completeTask, removeTask, getTasksForDay, currentWeek, todayKey };
 }

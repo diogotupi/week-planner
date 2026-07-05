@@ -10,12 +10,11 @@ const WAKE_HOURS = [7, 8, 9];
 
 interface DaySummaryProps {
   tasks: Task[];
-  currentWeek: string;
 }
 
-export function DaySummary({ tasks, currentWeek }: DaySummaryProps) {
+export function DaySummary({ tasks }: DaySummaryProps) {
   const pendingTasks = tasks.filter(
-    (task) => !isTaskCompleted(task.completedWeeks, currentWeek),
+    (task) => !isTaskCompleted(task.completedDates, task.day),
   );
 
   const totalMinutes = pendingTasks.reduce((sum, task) => {

@@ -11,7 +11,6 @@ interface DayColumnProps {
   day: DayOfWeek;
   tasks: Task[];
   allTasks: Task[];
-  currentWeek: string;
   activeTaskId: string | null;
   remainingMs: number;
   onAdd: (task: NewTaskInput) => void;
@@ -26,7 +25,6 @@ export function DayColumn({
   day,
   tasks,
   allTasks,
-  currentWeek,
   activeTaskId,
   remainingMs,
   onAdd,
@@ -57,7 +55,7 @@ export function DayColumn({
         {isToday && <span className="today-badge">Hoje</span>}
       </header>
 
-      <DaySummary tasks={tasks} currentWeek={currentWeek} />
+      <DaySummary tasks={tasks} />
 
       <div className="day-tasks">
         {tasks.length === 0 ? (
@@ -67,7 +65,6 @@ export function DayColumn({
             <TaskItem
               key={task.id}
               task={task}
-              currentWeek={currentWeek}
               isRunning={activeTaskId === task.id}
               remainingMs={activeTaskId === task.id ? remainingMs : 0}
               canStartTimer={activeTaskId === null}
