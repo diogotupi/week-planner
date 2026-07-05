@@ -1,15 +1,16 @@
 import { useState } from 'react';
 
 interface LoginPageProps {
-  onLogin: (username: string, password: string) => boolean;
+  onLogin: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
@@ -18,9 +19,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       return;
     }
 
-    const ok = onLogin(username, password);
-    if (!ok) {
-      setError('Login ou senha incorretos.');
+    setSubmitting(true);
+    const result = await onLogin(username, password);
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.error ?? 'Login ou senha incorretos.');
     }
   }
 
@@ -43,6 +47,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             placeholder="Seu nome de usuário"
             autoComplete="username"
             autoFocus
+            disabled={submitting}
           />
 
           <label className="field-label" htmlFor="login-password">
@@ -56,12 +61,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Sua senha"
             autoComplete="current-password"
+            disabled={submitting}
           />
 
           {error && <p className="field-error login-error">{error}</p>}
 
-          <button type="submit" className="btn-primary login-btn">
-            Entrar
+          <button type="submit" className="btn-primary login-btn" disabled={submitting}>
+            {submitting ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
       </div>

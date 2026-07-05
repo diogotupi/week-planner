@@ -1,59 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { fetchTasks, saveTasks } from '../lib/taskSync';
 import type { DayOfWeek, Task } from '../types';
-import { assignLegacyGroupIds, generateId, getDateForDayOfWeek, getDateKey, getWeekKey } from '../utils';
-
-function storageKey(username: string) {
-  return `week-planner-tasks-${username}`;
-}
-
-function migrateTask(task: Task & { completedWeeks?: string[] }): Task {
-  if (task.completedDates) return task;
-
-  const completedDates: string[] = [];
-  const legacyWeeks = task.completedWeeks ?? [];
-
-  if (legacyWeeks.includes(getWeekKey())) {
-    const today = new Date();
-    const todayDay = today.getDay() === 0 ? 6 : (today.getDay() - 1) as DayOfWeek;
-    if (task.day === todayDay) {
-      completedDates.push(getDateKey(today));
-    }
-  }
-
-  const { completedWeeks: _, ...rest } = task;
-  return { ...rest, completedDates };
-}
-
-function assignSortOrders(tasks: Task[]): Task[] {
-  if (tasks.every((task) => task.sortOrder !== undefined)) return tasks;
-
-  const dayGroups = new Map<DayOfWeek, Task[]>();
-  for (const task of tasks) {
-    const list = dayGroups.get(task.day) ?? [];
-    list.push(task);
-    dayGroups.set(task.day, list);
-  }
-
-  const orderMap = new Map<string, number>();
-  for (const dayTasks of dayGroups.values()) {
-    dayTasks.forEach((task, index) => orderMap.set(task.id, index));
-  }
-
-  return tasks.map((task) => ({
-    ...task,
-    sortOrder: task.sortOrder ?? orderMap.get(task.id) ?? 0,
-  }));
-}
-
-function loadTasks(username: string): Task[] {
-  try {
-    const raw = localStorage.getItem(storageKey(username));
-    const tasks = raw ? (JSON.parse(raw) as Task[]) : [];
-    return assignSortOrders(assignLegacyGroupIds(tasks.map(migrateTask)));
-  } catch {
-    return [];
-  }
-}
+import { generateId, getDateForDayOfWeek, getDateKey, getWeekKey } from '../utils';
 
 export type UpdateScope = 'single' | 'all';
 
@@ -68,17 +16,50 @@ export interface NewTaskInput {
 }
 
 export function useTasks(username: string) {
-  const [tasks, setTasks] = useState<Task[]>(() => loadTasks(username));
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [todayKey, setTodayKey] = useState(() => getDateKey());
   const currentWeek = getWeekKey();
+  const skipSaveRef = useRef(true);
 
   useEffect(() => {
-    setTasks(loadTasks(username));
+    let cancelled = false;
+    skipSaveRef.current = true;
+    setLoading(true);
+    setSyncError(null);
+
+    fetchTasks(username).then((loaded) => {
+      if (cancelled) return;
+      setTasks(loaded);
+      setLoading(false);
+      skipSaveRef.current = false;
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [username]);
 
   useEffect(() => {
-    localStorage.setItem(storageKey(username), JSON.stringify(tasks));
-  }, [tasks, username]);
+    if (skipSaveRef.current || loading) return;
+
+    const timer = window.setTimeout(() => {
+      setSyncing(true);
+      setSyncError(null);
+
+      saveTasks(username, tasks)
+        .catch(() => {
+          setSyncError('Não foi possível sincronizar. Dados salvos localmente.');
+        })
+        .finally(() => {
+          setSyncing(false);
+        });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [tasks, username, loading]);
 
   useEffect(() => {
     let timerId = 0;
@@ -133,41 +114,35 @@ export function useTasks(username: string) {
     [currentWeek],
   );
 
-  const toggleTask = useCallback(
-    (id: string) => {
-      setTasks((prev) =>
-        prev.map((task) => {
-          if (task.id !== id) return task;
-          const taskDate = getDateForDayOfWeek(task.day);
-          const done = task.completedDates.includes(taskDate);
-          return {
-            ...task,
-            completedDates: done
-              ? task.completedDates.filter((d) => d !== taskDate)
-              : [...task.completedDates, taskDate],
-          };
-        }),
-      );
-    },
-    [],
-  );
+  const toggleTask = useCallback((id: string) => {
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id !== id) return task;
+        const taskDate = getDateForDayOfWeek(task.day);
+        const done = task.completedDates.includes(taskDate);
+        return {
+          ...task,
+          completedDates: done
+            ? task.completedDates.filter((d) => d !== taskDate)
+            : [...task.completedDates, taskDate],
+        };
+      }),
+    );
+  }, []);
 
-  const completeTask = useCallback(
-    (id: string) => {
-      setTasks((prev) =>
-        prev.map((task) => {
-          if (task.id !== id) return task;
-          const taskDate = getDateForDayOfWeek(task.day);
-          if (task.completedDates.includes(taskDate)) return task;
-          return {
-            ...task,
-            completedDates: [...task.completedDates, taskDate],
-          };
-        }),
-      );
-    },
-    [],
-  );
+  const completeTask = useCallback((id: string) => {
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id !== id) return task;
+        const taskDate = getDateForDayOfWeek(task.day);
+        if (task.completedDates.includes(taskDate)) return task;
+        return {
+          ...task,
+          completedDates: [...task.completedDates, taskDate],
+        };
+      }),
+    );
+  }, []);
 
   const removeTask = useCallback((id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -239,6 +214,9 @@ export function useTasks(username: string) {
 
   return {
     tasks,
+    loading,
+    syncing,
+    syncError,
     addTasks,
     updateTask,
     toggleTask,

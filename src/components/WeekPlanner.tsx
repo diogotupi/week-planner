@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { isSupabaseConfigured } from '../lib/supabase';
 import type { DayOfWeek } from '../types';
 import { useTasks } from '../hooks/useTasks';
 import { useTaskTimer } from '../hooks/useTaskTimer';
@@ -9,12 +10,23 @@ const ALL_DAYS: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6];
 interface WeekPlannerProps {
   username: string;
   displayName: string;
-  onLogout: () => void;
+  onLogout: () => void | Promise<void>;
 }
 
 export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProps) {
-  const { addTasks, updateTask, toggleTask, completeTask, removeTask, reorderTasks, getTasksForDay, tasks } =
-    useTasks(username);
+  const {
+    addTasks,
+    updateTask,
+    toggleTask,
+    completeTask,
+    removeTask,
+    reorderTasks,
+    getTasksForDay,
+    tasks,
+    loading,
+    syncing,
+    syncError,
+  } = useTasks(username);
 
   const handleTimerComplete = useCallback(
     (taskId: string) => {
@@ -36,6 +48,14 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
     removeTask(id);
   }
 
+  if (loading) {
+    return (
+      <div className="app-loading">
+        <p>Carregando suas tarefas...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="planner">
       <header className="planner-header">
@@ -45,8 +65,15 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
             <p className="planner-subtitle">
               Olá, {displayName}! Organize suas tarefas de segunda a domingo.
             </p>
+            {isSupabaseConfigured() && (
+              <p className="sync-status" aria-live="polite">
+                {syncing && 'Sincronizando...'}
+                {!syncing && !syncError && 'Sincronizado na nuvem'}
+                {syncError}
+              </p>
+            )}
           </div>
-          <button type="button" className="btn-logout" onClick={onLogout}>
+          <button type="button" className="btn-logout" onClick={() => void onLogout()}>
             Sair
           </button>
         </div>
