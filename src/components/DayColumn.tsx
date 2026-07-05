@@ -10,6 +10,7 @@ interface DayColumnProps {
   tasks: Task[];
   currentWeek: string;
   onAdd: (task: NewTaskInput) => void;
+  onUpdate: (id: string, task: NewTaskInput) => void;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
 }
@@ -19,10 +20,12 @@ export function DayColumn({
   tasks,
   currentWeek,
   onAdd,
+  onUpdate,
   onToggle,
   onRemove,
 }: DayColumnProps) {
   const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const isToday = new Date().getDay() === (day === 6 ? 0 : day + 1);
 
   return (
@@ -42,6 +45,7 @@ export function DayColumn({
               task={task}
               currentWeek={currentWeek}
               onToggle={onToggle}
+              onEdit={setEditingTask}
               onRemove={onRemove}
             />
           ))
@@ -61,6 +65,15 @@ export function DayColumn({
           initialDay={day}
           onClose={() => setShowModal(false)}
           onAdd={onAdd}
+        />
+      )}
+
+      {editingTask && (
+        <AddTaskModal
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onAdd={onAdd}
+          onUpdate={onUpdate}
         />
       )}
     </section>

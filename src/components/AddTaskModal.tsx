@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import type { DayOfWeek, TimeMode } from '../types';
+import type { DayOfWeek, Task, TimeMode } from '../types';
 import { DAYS } from '../types';
 import type { NewTaskInput } from '../hooks/useTasks';
 
 interface AddTaskModalProps {
   initialDay?: DayOfWeek;
+  task?: Task;
   onClose: () => void;
   onAdd: (task: NewTaskInput) => void;
+  onUpdate?: (id: string, task: NewTaskInput) => void;
 }
 
 type TimeOption = TimeMode | null;
@@ -15,19 +17,38 @@ const ALL_DAYS: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6];
 
 const DAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-export function AddTaskModal({ initialDay, onClose, onAdd }: AddTaskModalProps) {
-  const [text, setText] = useState('');
+function parseDuration(duration?: string) {
+  const [hours = '0', minutes = '30'] = (duration ?? '0:30').split(':');
+  return { hours, minutes: minutes.padStart(2, '0') };
+}
+
+export function AddTaskModal({
+  initialDay,
+  task,
+  onClose,
+  onAdd,
+  onUpdate,
+}: AddTaskModalProps) {
+  const isEditing = task !== undefined;
+  const parsedDuration = parseDuration(task?.duration);
+
+  const [text, setText] = useState(task?.text ?? '');
   const [selectedDays, setSelectedDays] = useState<Set<DayOfWeek>>(
-    () => new Set(initialDay !== undefined ? [initialDay] : []),
+    () => new Set(task ? [task.day] : initialDay !== undefined ? [initialDay] : []),
   );
-  const [weekly, setWeekly] = useState(false);
-  const [timeOption, setTimeOption] = useState<TimeOption>(null);
-  const [durationHours, setDurationHours] = useState('0');
-  const [durationMinutes, setDurationMinutes] = useState('30');
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('10:00');
+  const [weekly, setWeekly] = useState(task?.weekly ?? false);
+  const [timeOption, setTimeOption] = useState<TimeOption>(task?.timeMode ?? null);
+  const [durationHours, setDurationHours] = useState(parsedDuration.hours);
+  const [durationMinutes, setDurationMinutes] = useState(parsedDuration.minutes);
+  const [startTime, setStartTime] = useState(task?.startTime ?? '09:00');
+  const [endTime, setEndTime] = useState(task?.endTime ?? '10:00');
 
   function toggleDay(day: DayOfWeek) {
+    if (isEditing) {
+      setSelectedDays(new Set([day]));
+      return;
+    }
+
     setSelectedDays((prev) => {
       const next = new Set(prev);
       if (next.has(day)) {
@@ -49,7 +70,7 @@ export function AddTaskModal({ initialDay, onClose, onAdd }: AddTaskModalProps) 
     e.preventDefault();
     if (!canSubmit || timeOption === null) return;
 
-    onAdd({
+    const input: NewTaskInput = {
       text: text.trim(),
       days: Array.from(selectedDays).sort((a, b) => a - b),
       weekly,
@@ -60,7 +81,13 @@ export function AddTaskModal({ initialDay, onClose, onAdd }: AddTaskModalProps) 
           : undefined,
       startTime: timeOption === 'schedule' ? startTime : undefined,
       endTime: timeOption === 'schedule' ? endTime : undefined,
-    });
+    };
+
+    if (isEditing && task && onUpdate) {
+      onUpdate(task.id, input);
+    } else {
+      onAdd(input);
+    }
     onClose();
   }
 
@@ -74,7 +101,7 @@ export function AddTaskModal({ initialDay, onClose, onAdd }: AddTaskModalProps) 
         aria-modal="true"
       >
         <h2 id="modal-title" className="modal-title">
-          Nova tarefa
+          {isEditing ? 'Editar tarefa' : 'Nova tarefa'}
         </h2>
 
         <form onSubmit={handleSubmit} className="modal-form">
@@ -91,8 +118,10 @@ export function AddTaskModal({ initialDay, onClose, onAdd }: AddTaskModalProps) 
             autoFocus
           />
 
-          <p className="section-label">Quais dias?</p>
-          <p className="section-hint">Selecione um ou mais dias</p>
+          <p className="section-label">{isEditing ? 'Qual dia?' : 'Quais dias?'}</p>
+          <p className="section-hint">
+            {isEditing ? 'Selecione o dia desta tarefa' : 'Selecione um ou mais dias'}
+          </p>
 
           <div className="day-picker" role="group" aria-label="Selecionar dias">
             {ALL_DAYS.map((day) => (
@@ -227,7 +256,7 @@ export function AddTaskModal({ initialDay, onClose, onAdd }: AddTaskModalProps) 
               Cancelar
             </button>
             <button type="submit" className="btn-primary" disabled={!canSubmit}>
-              Adicionar
+              {isEditing ? 'Salvar' : 'Adicionar'}
             </button>
           </div>
         </form>

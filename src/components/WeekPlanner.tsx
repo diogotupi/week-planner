@@ -11,7 +11,7 @@ interface WeekPlannerProps {
 }
 
 export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProps) {
-  const { addTasks, toggleTask, removeTask, getTasksForDay, currentWeek } =
+  const { addTasks, updateTask, toggleTask, removeTask, getTasksForDay, currentWeek } =
     useTasks(username);
 
   return (
@@ -38,6 +38,7 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
             tasks={getTasksForDay(day)}
             currentWeek={currentWeek}
             onAdd={addTasks}
+            onUpdate={updateTask}
             onToggle={toggleTask}
             onRemove={removeTask}
           />

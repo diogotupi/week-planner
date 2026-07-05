@@ -6,6 +6,7 @@ interface TaskItemProps {
   task: Task;
   currentWeek: string;
   onToggle: (id: string) => void;
+  onEdit: (task: Task) => void;
   onRemove: (id: string) => void;
 }
 
@@ -22,7 +23,7 @@ function getTimeLabel(task: Task): string {
   }
 }
 
-export function TaskItem({ task, currentWeek, onToggle, onRemove }: TaskItemProps) {
+export function TaskItem({ task, currentWeek, onToggle, onEdit, onRemove }: TaskItemProps) {
   const [animating, setAnimating] = useState(false);
   const completed = isTaskCompleted(task.completedWeeks, currentWeek);
 
@@ -64,21 +65,45 @@ export function TaskItem({ task, currentWeek, onToggle, onRemove }: TaskItemProp
         </svg>
       </button>
 
-      <div className="task-content">
+      <div
+        className="task-content"
+        onClick={() => onEdit(task)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onEdit(task);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        title="Editar tarefa"
+      >
         <p className="task-text">{task.text}</p>
         <p className="task-time">{getTimeLabel(task)}</p>
         {task.weekly && <span className="task-badge">Toda semana</span>}
       </div>
 
-      <button
-        type="button"
-        className="task-remove"
-        onClick={() => onRemove(task.id)}
-        aria-label="Remover tarefa"
-        title="Remover"
-      >
-        ×
-      </button>
+      <div className="task-actions">
+        <button
+          type="button"
+          className="task-edit"
+          onClick={() => onEdit(task)}
+          aria-label="Editar tarefa"
+          title="Editar"
+        >
+          ✎
+        </button>
+
+        <button
+          type="button"
+          className="task-remove"
+          onClick={() => onRemove(task.id)}
+          aria-label="Remover tarefa"
+          title="Remover"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 }

@@ -251,6 +251,18 @@ body {
 .task-content {
   flex: 1;
   min-width: 0;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.task-content:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.task-content:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .task-text {
@@ -283,6 +295,14 @@ body {
   border-radius: 20px;
 }
 
+.task-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.task-edit,
 .task-remove {
   flex-shrink: 0;
   width: 30px;
@@ -290,7 +310,7 @@ body {
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 1.4rem;
+  font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
   border-radius: 6px;
@@ -298,9 +318,20 @@ body {
   transition: opacity 0.15s, background 0.15s, color 0.15s;
 }
 
+.task-remove {
+  font-size: 1.4rem;
+}
+
+.task-item:hover .task-edit,
 .task-item:hover .task-remove,
+.task-edit:focus-visible,
 .task-remove:focus-visible {
   opacity: 1;
+}
+
+.task-edit:hover {
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .task-remove:hover {

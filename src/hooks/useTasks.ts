@@ -84,6 +84,28 @@ export function useTasks(username: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const updateTask = useCallback((id: string, input: NewTaskInput) => {
+    const day = input.days[0];
+    if (day === undefined) return;
+
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === id
+          ? {
+              ...task,
+              text: input.text,
+              day,
+              weekly: input.weekly,
+              timeMode: input.timeMode,
+              duration: input.duration,
+              startTime: input.startTime,
+              endTime: input.endTime,
+            }
+          : task,
+      ),
+    );
+  }, []);
+
   const getTasksForDay = useCallback(
     (day: DayOfWeek) =>
       tasks.filter(
@@ -94,5 +116,5 @@ export function useTasks(username: string) {
     [tasks, currentWeek],
   );
 
-  return { tasks, addTasks, toggleTask, removeTask, getTasksForDay, currentWeek };
+  return { tasks, addTasks, updateTask, toggleTask, removeTask, getTasksForDay, currentWeek };
 }
