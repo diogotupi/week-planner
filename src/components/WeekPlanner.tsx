@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { isSyncEnabled } from '../lib/api';
 import type { DayOfWeek } from '../types';
 import { useTasks } from '../hooks/useTasks';
 import { useTaskTimer } from '../hooks/useTaskTimer';
@@ -65,7 +65,7 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
             <p className="planner-subtitle">
               Olá, {displayName}! Organize suas tarefas de segunda a domingo.
             </p>
-            {isSupabaseConfigured() && (
+            {isSyncEnabled() && (
               <p className="sync-status" aria-live="polite">
                 {syncing && 'Sincronizando...'}
                 {!syncing && !syncError && 'Sincronizado na nuvem'}

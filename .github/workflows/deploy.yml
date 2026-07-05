@@ -27,9 +27,6 @@ jobs:
 
       - run: npm ci
       - run: GITHUB_PAGES=true npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Publicar na branch gh-pages
         uses: peaceiris/actions-gh-pages@v4
