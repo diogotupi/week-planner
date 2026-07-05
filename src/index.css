@@ -100,7 +100,11 @@ body {
   }
 
   .days-grid {
-    grid-template-columns: repeat(2, minmax(160px, 1fr));
+    grid-template-columns: repeat(2, minmax(175px, 1fr));
+  }
+
+  .day-tasks {
+    padding: 0.45rem;
   }
 }
 
@@ -231,10 +235,15 @@ body {
 
 .task-item {
   position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.55rem 0.5rem 0.55rem 0.55rem;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  grid-template-areas:
+    "handle check content"
+    ".      .    actions";
+  column-gap: 0.35rem;
+  row-gap: 0.15rem;
+  align-items: start;
+  padding: 0.5rem;
   border-radius: var(--radius-sm);
   background: var(--bg);
   border: 1px solid var(--border);
@@ -267,8 +276,9 @@ body {
 }
 
 .task-drag-handle {
+  grid-area: handle;
   flex-shrink: 0;
-  width: 18px;
+  width: 14px;
   height: 22px;
   margin-top: 1px;
   border: none;
@@ -309,10 +319,11 @@ body {
 }
 
 .task-checkbox {
+  grid-area: check;
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  margin-top: 1px;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
   border: 1.5px solid var(--border-strong);
   border-radius: 6px;
   background: var(--surface);
@@ -357,7 +368,7 @@ body {
 }
 
 .task-content {
-  flex: 1;
+  grid-area: content;
   min-width: 0;
   cursor: pointer;
   border-radius: 4px;
@@ -376,9 +387,10 @@ body {
 .task-text {
   font-size: 0.875rem;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.4;
   overflow-wrap: break-word;
-  hyphens: auto;
+  word-break: normal;
+  hyphens: none;
   transition: opacity 0.3s, text-decoration-color 0.3s;
 }
 
@@ -422,7 +434,8 @@ body {
 }
 
 .task-actions {
-  flex-shrink: 0;
+  grid-area: actions;
+  justify-self: end;
   display: flex;
   flex-direction: row;
   gap: 0.1rem;
