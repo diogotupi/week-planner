@@ -1,25 +1,41 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  clearSession,
   getDisplayName,
-  getSession,
-  setSession,
-  validateLogin,
+  restoreSession,
+  signIn,
+  signOut,
 } from '../auth';
 
 export function useAuth() {
-  const [user, setUser] = useState<string | null>(getSession);
+  const [user, setUser] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback((username: string, password: string): boolean => {
-    const valid = validateLogin(username, password);
-    if (!valid) return false;
-    setSession(valid.username);
-    setUser(valid.username);
-    return true;
+  useEffect(() => {
+    let cancelled = false;
+
+    restoreSession().then((sessionUser) => {
+      if (!cancelled) {
+        setUser(sessionUser);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const logout = useCallback(() => {
-    clearSession();
+  const login = useCallback(async (username: string, password: string) => {
+    const result = await signIn(username, password);
+    if (!result.user) {
+      return { ok: false as const, error: result.error ?? 'Login ou senha incorretos.' };
+    }
+    setUser(result.user.username);
+    return { ok: true as const };
+  }, []);
+
+  const logout = useCallback(async () => {
+    await signOut();
     setUser(null);
   }, []);
 
@@ -29,5 +45,6 @@ export function useAuth() {
     login,
     logout,
     isAuthenticated: user !== null,
+    loading,
   };
 }
