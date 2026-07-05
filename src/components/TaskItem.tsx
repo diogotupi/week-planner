@@ -12,11 +12,17 @@ interface TaskItemProps {
   isRunning: boolean;
   remainingMs: number;
   canStartTimer: boolean;
+  isDragging: boolean;
+  isDragOver: boolean;
   onToggle: (id: string) => void;
   onEdit: (task: Task) => void;
   onRemove: (id: string) => void;
   onStart: (id: string) => void;
   onStop: () => void;
+  onDragStart: (id: string) => void;
+  onDragEnd: () => void;
+  onDragOver: (e: React.DragEvent, id: string) => void;
+  onDrop: (id: string) => void;
 }
 
 function getTimeLabel(task: Task): string {
@@ -37,11 +43,17 @@ export function TaskItem({
   isRunning,
   remainingMs,
   canStartTimer,
+  isDragging,
+  isDragOver,
   onToggle,
   onEdit,
   onRemove,
   onStart,
   onStop,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }: TaskItemProps) {
   const [animating, setAnimating] = useState(false);
   const wasRunning = useRef(false);
@@ -85,7 +97,12 @@ export function TaskItem({
 
   return (
     <div
-      className={`task-item ${completed ? 'completed' : ''} ${animating ? 'celebrate' : ''} ${isRunning ? 'running' : ''}`}
+      className={`task-item ${completed ? 'completed' : ''} ${animating ? 'celebrate' : ''} ${isRunning ? 'running' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+      onDragOver={(e) => onDragOver(e, task.id)}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDrop(task.id);
+      }}
     >
       {animating && (
         <div className="confetti" aria-hidden="true">
@@ -94,6 +111,22 @@ export function TaskItem({
           ))}
         </div>
       )}
+
+      <button
+        type="button"
+        className="task-drag-handle"
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', task.id);
+          onDragStart(task.id);
+        }}
+        onDragEnd={onDragEnd}
+        aria-label="Arrastar para reordenar"
+        title="Arrastar"
+      >
+        ⠿
+      </button>
 
       <button
         type="button"

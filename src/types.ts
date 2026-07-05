@@ -14,6 +14,7 @@ export interface Task {
   createdWeek: string;
   completedDates: string[];
   groupId?: string;
+  sortOrder: number;
 }
 
 export const DAYS = [

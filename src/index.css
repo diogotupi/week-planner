@@ -257,6 +257,46 @@ body {
   box-shadow: 0 0 0 1px rgba(45, 106, 79, 0.15);
 }
 
+.task-item.dragging {
+  opacity: 0.45;
+}
+
+.task-item.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 -2px 0 var(--accent);
+}
+
+.task-drag-handle {
+  flex-shrink: 0;
+  width: 18px;
+  height: 22px;
+  margin-top: 1px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: grab;
+  border-radius: 4px;
+  padding: 0;
+  opacity: 0.35;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.task-item:hover .task-drag-handle,
+.task-drag-handle:focus-visible {
+  opacity: 1;
+}
+
+.task-drag-handle:hover {
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+.task-drag-handle:active {
+  cursor: grabbing;
+}
+
 .task-item.celebrate {
   animation: task-pop 0.5s ease;
 }

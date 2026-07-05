@@ -24,11 +24,32 @@ function migrateTask(task: Task & { completedWeeks?: string[] }): Task {
   return { ...rest, completedDates };
 }
 
+function assignSortOrders(tasks: Task[]): Task[] {
+  if (tasks.every((task) => task.sortOrder !== undefined)) return tasks;
+
+  const dayGroups = new Map<DayOfWeek, Task[]>();
+  for (const task of tasks) {
+    const list = dayGroups.get(task.day) ?? [];
+    list.push(task);
+    dayGroups.set(task.day, list);
+  }
+
+  const orderMap = new Map<string, number>();
+  for (const dayTasks of dayGroups.values()) {
+    dayTasks.forEach((task, index) => orderMap.set(task.id, index));
+  }
+
+  return tasks.map((task) => ({
+    ...task,
+    sortOrder: task.sortOrder ?? orderMap.get(task.id) ?? 0,
+  }));
+}
+
 function loadTasks(username: string): Task[] {
   try {
     const raw = localStorage.getItem(storageKey(username));
     const tasks = raw ? (JSON.parse(raw) as Task[]) : [];
-    return assignLegacyGroupIds(tasks.map(migrateTask));
+    return assignSortOrders(assignLegacyGroupIds(tasks.map(migrateTask)));
   } catch {
     return [];
   }
@@ -90,14 +111,24 @@ export function useTasks(username: string) {
         ...(groupId ? { groupId } : {}),
       };
 
-      setTasks((prev) => [
-        ...prev,
-        ...input.days.map((day) => ({
-          ...base,
-          id: generateId(),
-          day,
-        })),
-      ]);
+      setTasks((prev) => {
+        const newTasks = input.days.map((day) => {
+          const dayTasks = prev.filter((task) => task.day === day);
+          const maxOrder = dayTasks.reduce(
+            (max, task) => Math.max(max, task.sortOrder ?? 0),
+            -1,
+          );
+
+          return {
+            ...base,
+            id: generateId(),
+            day,
+            sortOrder: maxOrder + 1,
+          };
+        });
+
+        return [...prev, ...newTasks];
+      });
     },
     [currentWeek],
   );
@@ -167,21 +198,55 @@ export function useTasks(username: string) {
 
       return prev.map((item) =>
         item.id === id
-          ? { ...item, ...sharedFields, day, groupId: task.groupId ? undefined : item.groupId }
+          ? {
+              ...item,
+              ...sharedFields,
+              day,
+              groupId: task.groupId ? undefined : item.groupId,
+              sortOrder: (() => {
+                if (day === task.day) return item.sortOrder;
+                const dayTasks = prev.filter((t) => t.day === day && t.id !== id);
+                return dayTasks.reduce((max, t) => Math.max(max, t.sortOrder ?? 0), -1) + 1;
+              })(),
+            }
           : item,
       );
     });
   }, []);
 
+  const reorderTasks = useCallback((day: DayOfWeek, orderedIds: string[]) => {
+    const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.day === day && orderMap.has(task.id)
+          ? { ...task, sortOrder: orderMap.get(task.id)! }
+          : task,
+      ),
+    );
+  }, []);
+
   const getTasksForDay = useCallback(
     (day: DayOfWeek) =>
-      tasks.filter(
-        (t) =>
-          t.day === day &&
-          (t.weekly || t.createdWeek === currentWeek),
-      ),
+      tasks
+        .filter(
+          (t) =>
+            t.day === day &&
+            (t.weekly || t.createdWeek === currentWeek),
+        )
+        .sort((a, b) => a.sortOrder - b.sortOrder),
     [tasks, currentWeek],
   );
 
-  return { tasks, addTasks, updateTask, toggleTask, completeTask, removeTask, getTasksForDay, currentWeek, todayKey };
+  return {
+    tasks,
+    addTasks,
+    updateTask,
+    toggleTask,
+    completeTask,
+    removeTask,
+    reorderTasks,
+    getTasksForDay,
+    currentWeek,
+    todayKey,
+  };
 }

@@ -13,7 +13,7 @@ interface WeekPlannerProps {
 }
 
 export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProps) {
-  const { addTasks, updateTask, toggleTask, completeTask, removeTask, getTasksForDay, tasks } =
+  const { addTasks, updateTask, toggleTask, completeTask, removeTask, reorderTasks, getTasksForDay, tasks } =
     useTasks(username);
 
   const handleTimerComplete = useCallback(
@@ -66,6 +66,7 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
               onUpdate={updateTask}
               onToggle={handleToggle}
               onRemove={handleRemove}
+              onReorder={reorderTasks}
               onStartTask={startTimer}
               onStopTask={stopTimer}
             />
