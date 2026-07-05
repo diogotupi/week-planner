@@ -21,19 +21,21 @@ Um planejador semanal simples, minimalista e fácil de usar — pensado para ser
 
 ---
 
-## Deploy em 1 clique (recomendado — Vercel + Supabase)
+## Deploy no Vercel com sincronização (recomendado)
 
-**Você está na rua?** Abra este link no celular, faça login no Vercel e clique em Deploy. O Vercel cria o banco Supabase automaticamente e configura tudo:
+Como o repositório `week-planner` **já existe** no GitHub, não use o link de "clone". Importe o repo existente:
 
-**[Deploy no Vercel com Supabase](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdiogotupi%2Fweek-planner%2Ftree%2Fmain&project-name=week-planner&repository-name=week-planner&env=VITE_SUPABASE_URL%2CVITE_SUPABASE_ANON_KEY%2CNEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CPOSTGRES_URL&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22supabase%22%2C%22productSlug%22%3A%22supabase%22%7D%5D)**
+### Passo a passo no celular
 
-O que acontece automaticamente:
-1. Vercel importa o projeto do GitHub
-2. Cria um projeto Supabase gratuito e conecta
-3. Configura as variáveis de ambiente
-4. Faz o deploy e cria a tabela + usuários (`camila` e `diogo`)
+1. Abra: **[vercel.com/new](https://vercel.com/new)**
+2. Na lista, encontre **`week-planner`** e clique em **Import**
+3. Em **Production Branch**, troque de `gh-pages` para **`main`**
+4. Antes de deployar, clique em **Storage** ou **Integrations** e adicione **Supabase**
+5. Clique em **Deploy** e aguarde ~2 min
 
-Depois do deploy (~2 min), acesse a URL que o Vercel mostrar e faça login. Pronto — sincroniza entre aparelhos.
+O script de setup cria automaticamente a tabela e os usuários `camila` / `diogo`.
+
+Depois acesse a URL que o Vercel mostrar e faça login.
 
 ---
 
@@ -41,7 +43,7 @@ Depois do deploy (~2 min), acesse a URL que o Vercel mostrar e faça login. Pron
 
 **URL:** https://diogotupi.github.io/week-planner/
 
-O GitHub Pages não suporta banco de dados. Para sincronizar entre celular e PC, use o **Vercel** (link acima).
+O GitHub Pages não suporta banco de dados. Para sincronizar entre celular e PC, use o **Vercel** (passos acima).
 
 ---
 
