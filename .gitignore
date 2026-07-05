@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 .env
+.supabase-credentials.json
+.turso-setup.json
 
 # Editor directories and files
 .vscode/*

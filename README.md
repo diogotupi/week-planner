@@ -6,13 +6,10 @@ Um planejador semanal simples, minimalista e fácil de usar — pensado para ser
 
 - **7 dias da semana** — de segunda a domingo
 - **Vários dias por tarefa** — ex: Academia em Seg, Qua e Sex
-- **Adicionar tarefas** em cada dia com três modos de tempo:
-  - **Definir tempo** — duração sem horário fixo (ex: 1h30)
-  - **Definir horário** — início e fim da tarefa
-  - **Dia todo** — dedica o dia inteiro
-- **Toda semana?** — tarefas recorrentes que aparecem toda semana no mesmo dia
+- **Adicionar tarefas** em cada dia com três modos de tempo
+- **Toda semana?** — tarefas recorrentes
 - **Login** — cada usuário tem suas próprias tarefas
-- **Sincronização na nuvem** — tarefas sincronizadas entre celular e computador via Supabase
+- **Sincronização na nuvem** — tarefas iguais no celular e no computador
 - **Checkbox animado** — animação ao marcar tarefa como concluída
 
 ### Usuários
@@ -22,60 +19,36 @@ Um planejador semanal simples, minimalista e fácil de usar — pensado para ser
 | camila | 123456  |
 | diogo  | 123456  |
 
-## Como usar localmente
+---
 
-```bash
-npm install
-cp .env.example .env   # preencha com as credenciais do Supabase
-npm run dev
-```
+## Deploy em 1 clique (recomendado — Vercel + Supabase)
 
-Abra [http://localhost:5173](http://localhost:5173) no navegador.
+**Você está na rua?** Abra este link no celular, faça login no Vercel e clique em Deploy. O Vercel cria o banco Supabase automaticamente e configura tudo:
 
-## Configurar sincronização (Supabase)
+**[Deploy no Vercel com Supabase](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdiogotupi%2Fweek-planner&project-name=week-planner&repository-name=week-planner&env=VITE_SUPABASE_URL%2CVITE_SUPABASE_ANON_KEY%2CNEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CPOSTGRES_URL&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22supabase%22%2C%22productSlug%22%3A%22supabase%22%7D%5D)**
 
-A sincronização usa [Supabase](https://supabase.com) (grátis). Faça isso uma vez:
+O que acontece automaticamente:
+1. Vercel importa o projeto do GitHub
+2. Cria um projeto Supabase gratuito e conecta
+3. Configura as variáveis de ambiente
+4. Faz o deploy e cria a tabela + usuários (`camila` e `diogo`)
 
-### 1. Criar projeto no Supabase
+Depois do deploy (~2 min), acesse a URL que o Vercel mostrar e faça login. Pronto — sincroniza entre aparelhos.
 
-1. Acesse [supabase.com](https://supabase.com) e crie um projeto gratuito
-2. Em **Project Settings → API**, copie:
-   - **Project URL** → `VITE_SUPABASE_URL`
-   - **anon public key** → `VITE_SUPABASE_ANON_KEY`
+---
 
-### 2. Criar tabela no banco
-
-No **SQL Editor** do Supabase, execute o conteúdo de [`supabase/schema.sql`](supabase/schema.sql).
-
-### 3. Criar usuários
-
-Em **Authentication → Users → Add user**, crie:
-
-| Email | Senha |
-|-------|-------|
-| `camila@weekplanner.app` | `123456` |
-| `diogo@weekplanner.app` | `123456` |
-
-Em **Authentication → Providers → Email**, desative **Confirm email**.
-
-### 4. Configurar variáveis
-
-**Local:** copie `.env.example` para `.env` e preencha as chaves.
-
-**GitHub Pages:** em **Settings → Secrets and variables → Actions**, adicione:
-
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-
-Depois disso, cada login sincroniza as tarefas automaticamente entre aparelhos.
-
-## Site online (GitHub Pages)
+## Site no GitHub Pages (sem sincronização)
 
 **URL:** https://diogotupi.github.io/week-planner/
 
-### Configuração do Pages
+O GitHub Pages não suporta banco de dados. Para sincronizar entre celular e PC, use o **Vercel** (link acima).
 
-1. Abra: **https://github.com/diogotupi/week-planner/settings/pages**
-2. Em **Branch**, use **`gh-pages`**
-3. Pasta: **`/ (root)`**
-4. Salve e aguarde ~1 minuto
+---
+
+## Desenvolvimento local
+
+```bash
+npm install
+cp .env.example .env   # preencha com credenciais do Supabase (opcional)
+npm run dev
+```

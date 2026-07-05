@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "vite --open /index.dev.html",
     "build": "tsc -b && vite build && mv dist/index.dev.html dist/index.html",
+    "setup:database": "node scripts/setup-database.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
+    "postgres": "^3.4.7",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
