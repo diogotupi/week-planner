@@ -1,4 +1,8 @@
-import { isSupabaseConfigured, supabase } from './lib/supabase';
+import {
+  clearAuthToken,
+  isSyncEnabled,
+  setAuthToken,
+} from './lib/api';
 
 export interface User {
   username: string;
@@ -12,15 +16,6 @@ export const USERS: User[] = [
 ];
 
 const SESSION_KEY = 'week-planner-session';
-const AUTH_DOMAIN = 'weekplanner.app';
-
-export function toAuthEmail(username: string): string {
-  return `${username.trim().toLowerCase()}@${AUTH_DOMAIN}`;
-}
-
-export function usernameFromEmail(email: string): string {
-  return email.split('@')[0]?.toLowerCase() ?? email;
-}
 
 function findUser(username: string): User | undefined {
   const normalized = username.trim().toLowerCase();
@@ -57,26 +52,26 @@ export async function signIn(
   username: string,
   password: string,
 ): Promise<{ user: User | null; error?: string }> {
-  const user = findUser(username);
+  const user = validateLogin(username, password);
   if (!user) {
     return { user: null, error: 'Login ou senha incorretos.' };
   }
 
-  if (!isSupabaseConfigured()) {
-    if (user.password !== password) {
-      return { user: null, error: 'Login ou senha incorretos.' };
+  if (isSyncEnabled()) {
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as { token: string };
+        setAuthToken(data.token);
+      }
+    } catch {
+      // Sem API (ex: GitHub Pages) — continua só com localStorage
     }
-    setSession(user.username);
-    return { user };
-  }
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email: toAuthEmail(user.username),
-    password,
-  });
-
-  if (error) {
-    return { user: null, error: 'Login ou senha incorretos.' };
   }
 
   setSession(user.username);
@@ -85,31 +80,9 @@ export async function signIn(
 
 export async function signOut(): Promise<void> {
   clearSession();
-  if (isSupabaseConfigured()) {
-    await supabase.auth.signOut();
-  }
+  clearAuthToken();
 }
 
 export async function restoreSession(): Promise<string | null> {
-  if (!isSupabaseConfigured()) {
-    return getSession();
-  }
-
-  const { data } = await supabase.auth.getSession();
-  const email = data.session?.user.email;
-
-  if (!email) {
-    clearSession();
-    return null;
-  }
-
-  const username = usernameFromEmail(email);
-  if (!findUser(username)) {
-    clearSession();
-    await supabase.auth.signOut();
-    return null;
-  }
-
-  setSession(username);
-  return username;
+  return getSession();
 }

@@ -1,6 +1,6 @@
 import type { DayOfWeek, Task } from '../types';
 import { assignLegacyGroupIds, getDateKey, getWeekKey } from '../utils';
-import { isSupabaseConfigured, supabase } from './supabase';
+import { apiFetch, isSyncEnabled } from './api';
 
 const LEGACY_STORAGE_KEY = 'week-planner-tasks';
 
@@ -83,56 +83,45 @@ function pickLocalSource(username: string): Task[] {
 export async function fetchTasks(username: string): Promise<Task[]> {
   const local = pickLocalSource(username);
 
-  if (!isSupabaseConfigured()) {
+  if (!isSyncEnabled()) {
     return local;
   }
 
-  const { data, error } = await supabase
-    .from('user_tasks')
-    .select('tasks, updated_at')
-    .eq('username', username)
-    .maybeSingle();
+  try {
+    const response = await apiFetch('/api/tasks');
+    if (!response.ok) {
+      console.error('Erro ao carregar tarefas:', response.status);
+      return local;
+    }
 
-  if (error) {
-    console.error('Erro ao carregar tarefas:', error.message);
-    return local;
-  }
+    const data = (await response.json()) as { tasks: unknown };
+    const remote = normalizeTasks(data.tasks);
 
-  if (!data) {
-    if (local.length > 0) {
+    if (remote.length === 0 && local.length > 0) {
       await saveTasks(username, local);
       return local;
     }
-    return [];
-  }
 
-  const remote = normalizeTasks(data.tasks);
-
-  if (remote.length === 0 && local.length > 0) {
-    await saveTasks(username, local);
+    cacheLocal(username, remote);
+    return remote;
+  } catch (error) {
+    console.error('Erro ao carregar tarefas:', error);
     return local;
   }
-
-  cacheLocal(username, remote);
-  return remote;
 }
 
 export async function saveTasks(username: string, tasks: Task[]): Promise<void> {
   cacheLocal(username, tasks);
 
-  if (!isSupabaseConfigured()) return;
+  if (!isSyncEnabled()) return;
 
-  const { error } = await supabase.from('user_tasks').upsert(
-    {
-      username,
-      tasks,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'username' },
-  );
+  const response = await apiFetch('/api/tasks', {
+    method: 'PUT',
+    body: JSON.stringify({ tasks }),
+  });
 
-  if (error) {
-    console.error('Erro ao salvar tarefas:', error.message);
-    throw error;
+  if (!response.ok) {
+    console.error('Erro ao salvar tarefas:', response.status);
+    throw new Error('Falha ao sincronizar');
   }
 }
