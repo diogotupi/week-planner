@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { DayOfWeek, Task } from '../types';
 import { DAYS } from '../types';
-import type { NewTaskInput } from '../hooks/useTasks';
+import type { NewTaskInput, UpdateScope } from '../hooks/useTasks';
 import { getTaskDurationMinutes } from '../utils';
 import { AddTaskModal } from './AddTaskModal';
 import { DaySummary } from './DaySummary';
@@ -10,11 +10,12 @@ import { TaskItem } from './TaskItem';
 interface DayColumnProps {
   day: DayOfWeek;
   tasks: Task[];
+  allTasks: Task[];
   currentWeek: string;
   activeTaskId: string | null;
   remainingMs: number;
   onAdd: (task: NewTaskInput) => void;
-  onUpdate: (id: string, task: NewTaskInput) => void;
+  onUpdate: (id: string, task: NewTaskInput, scope: UpdateScope) => void;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onStartTask: (id: string, durationMinutes: number) => void;
@@ -24,6 +25,7 @@ interface DayColumnProps {
 export function DayColumn({
   day,
   tasks,
+  allTasks,
   currentWeek,
   activeTaskId,
   remainingMs,
@@ -98,6 +100,7 @@ export function DayColumn({
       {editingTask && (
         <AddTaskModal
           task={editingTask}
+          allTasks={allTasks}
           onClose={() => setEditingTask(null)}
           onAdd={onAdd}
           onUpdate={onUpdate}

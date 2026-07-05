@@ -90,3 +90,47 @@ export function formatRemainingMs(ms: number): string {
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
+
+function legacyGroupKey(task: Task): string {
+  return [
+    task.text,
+    task.createdWeek,
+    String(task.weekly),
+    task.timeMode,
+    task.duration ?? '',
+    task.startTime ?? '',
+    task.endTime ?? '',
+  ].join('|');
+}
+
+export function assignLegacyGroupIds(tasks: Task[]): Task[] {
+  const clusters = new Map<string, Task[]>();
+
+  for (const task of tasks) {
+    if (task.groupId) continue;
+    const key = legacyGroupKey(task);
+    const group = clusters.get(key) ?? [];
+    group.push(task);
+    clusters.set(key, group);
+  }
+
+  const newGroupIds = new Map<string, string>();
+  for (const [key, members] of clusters) {
+    if (members.length > 1) {
+      newGroupIds.set(key, generateId());
+    }
+  }
+
+  if (newGroupIds.size === 0) return tasks;
+
+  return tasks.map((task) => {
+    if (task.groupId) return task;
+    const groupId = newGroupIds.get(legacyGroupKey(task));
+    return groupId ? { ...task, groupId } : task;
+  });
+}
+
+export function getTasksInGroup(task: Task, allTasks: Task[]): Task[] {
+  if (!task.groupId) return [task];
+  return allTasks.filter((item) => item.groupId === task.groupId);
+}

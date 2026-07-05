@@ -13,6 +13,7 @@ export interface Task {
   endTime?: string;
   createdWeek: string;
   completedWeeks: string[];
+  groupId?: string;
 }
 
 export const DAYS = [

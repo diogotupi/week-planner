@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import type { DayOfWeek, Task, TimeMode } from '../types';
 import { DAYS } from '../types';
-import type { NewTaskInput } from '../hooks/useTasks';
+import type { NewTaskInput, UpdateScope } from '../hooks/useTasks';
+import { getTasksInGroup } from '../utils';
 
 interface AddTaskModalProps {
   initialDay?: DayOfWeek;
   task?: Task;
+  allTasks?: Task[];
   onClose: () => void;
   onAdd: (task: NewTaskInput) => void;
-  onUpdate?: (id: string, task: NewTaskInput) => void;
+  onUpdate?: (id: string, task: NewTaskInput, scope: UpdateScope) => void;
 }
 
 type TimeOption = TimeMode | null;
@@ -25,12 +27,15 @@ function parseDuration(duration?: string) {
 export function AddTaskModal({
   initialDay,
   task,
+  allTasks = [],
   onClose,
   onAdd,
   onUpdate,
 }: AddTaskModalProps) {
   const isEditing = task !== undefined;
   const parsedDuration = parseDuration(task?.duration);
+  const siblings = task ? getTasksInGroup(task, allTasks) : [];
+  const hasSiblings = siblings.length > 1;
 
   const [text, setText] = useState(task?.text ?? '');
   const [selectedDays, setSelectedDays] = useState<Set<DayOfWeek>>(
@@ -42,6 +47,8 @@ export function AddTaskModal({
   const [durationMinutes, setDurationMinutes] = useState(parsedDuration.minutes);
   const [startTime, setStartTime] = useState(task?.startTime ?? '09:00');
   const [endTime, setEndTime] = useState(task?.endTime ?? '10:00');
+  const [showScopeChoice, setShowScopeChoice] = useState(false);
+  const [pendingInput, setPendingInput] = useState<NewTaskInput | null>(null);
 
   function toggleDay(day: DayOfWeek) {
     if (isEditing) {
@@ -66,15 +73,12 @@ export function AddTaskModal({
     timeOption !== null &&
     (timeOption !== 'schedule' || startTime < endTime);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!canSubmit || timeOption === null) return;
-
-    const input: NewTaskInput = {
+  function buildInput(): NewTaskInput {
+    return {
       text: text.trim(),
       days: Array.from(selectedDays).sort((a, b) => a - b),
       weekly,
-      timeMode: timeOption,
+      timeMode: timeOption!,
       duration:
         timeOption === 'duration'
           ? `${durationHours}:${durationMinutes.padStart(2, '0')}`
@@ -82,9 +86,27 @@ export function AddTaskModal({
       startTime: timeOption === 'schedule' ? startTime : undefined,
       endTime: timeOption === 'schedule' ? endTime : undefined,
     };
+  }
+
+  function applyUpdate(scope: UpdateScope) {
+    if (!task || !onUpdate || !pendingInput) return;
+    onUpdate(task.id, pendingInput, scope);
+    onClose();
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit || timeOption === null) return;
+
+    const input = buildInput();
 
     if (isEditing && task && onUpdate) {
-      onUpdate(task.id, input);
+      if (hasSiblings) {
+        setPendingInput(input);
+        setShowScopeChoice(true);
+        return;
+      }
+      onUpdate(task.id, input, 'single');
     } else {
       onAdd(input);
     }
@@ -101,9 +123,49 @@ export function AddTaskModal({
         aria-modal="true"
       >
         <h2 id="modal-title" className="modal-title">
-          {isEditing ? 'Editar tarefa' : 'Nova tarefa'}
+          {showScopeChoice ? 'Onde aplicar?' : isEditing ? 'Editar tarefa' : 'Nova tarefa'}
         </h2>
 
+        {showScopeChoice ? (
+          <div className="scope-choice">
+            <p className="scope-choice-text">
+              Esta tarefa aparece em <strong>{siblings.length} dias</strong> da semana.
+              Deseja alterar apenas neste dia ou em todos?
+            </p>
+            {hasSiblings && (
+              <p className="scope-choice-hint">
+                Ao escolher &quot;Todos os dias&quot;, o dia de cada tarefa não muda — só o
+                conteúdo (nome, tempo, horário etc.).
+              </p>
+            )}
+            <div className="scope-choice-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => applyUpdate('single')}
+              >
+                Apenas este dia
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => applyUpdate('all')}
+              >
+                Todos os dias ({siblings.length})
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  setShowScopeChoice(false);
+                  setPendingInput(null);
+                }}
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="modal-form">
           <label className="field-label" htmlFor="task-text">
             O que você precisa fazer?
@@ -120,7 +182,11 @@ export function AddTaskModal({
 
           <p className="section-label">{isEditing ? 'Qual dia?' : 'Quais dias?'}</p>
           <p className="section-hint">
-            {isEditing ? 'Selecione o dia desta tarefa' : 'Selecione um ou mais dias'}
+            {isEditing
+              ? hasSiblings
+                ? 'Só muda se escolher "Apenas este dia" ao salvar'
+                : 'Selecione o dia desta tarefa'
+              : 'Selecione um ou mais dias'}
           </p>
 
           <div className="day-picker" role="group" aria-label="Selecionar dias">
@@ -260,6 +326,7 @@ export function AddTaskModal({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

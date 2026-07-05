@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DayOfWeek, Task } from '../types';
-import { generateId, getWeekKey } from '../utils';
+import { assignLegacyGroupIds, generateId, getWeekKey } from '../utils';
 
 function storageKey(username: string) {
   return `week-planner-tasks-${username}`;
@@ -9,11 +9,14 @@ function storageKey(username: string) {
 function loadTasks(username: string): Task[] {
   try {
     const raw = localStorage.getItem(storageKey(username));
-    return raw ? (JSON.parse(raw) as Task[]) : [];
+    const tasks = raw ? (JSON.parse(raw) as Task[]) : [];
+    return assignLegacyGroupIds(tasks);
   } catch {
     return [];
   }
 }
+
+export type UpdateScope = 'single' | 'all';
 
 export interface NewTaskInput {
   text: string;
@@ -39,6 +42,7 @@ export function useTasks(username: string) {
 
   const addTasks = useCallback(
     (input: NewTaskInput) => {
+      const groupId = input.days.length > 1 ? generateId() : undefined;
       const base = {
         text: input.text,
         weekly: input.weekly,
@@ -48,6 +52,7 @@ export function useTasks(username: string) {
         endTime: input.endTime,
         createdWeek: currentWeek,
         completedWeeks: [] as string[],
+        ...(groupId ? { groupId } : {}),
       };
 
       setTasks((prev) => [
@@ -100,26 +105,35 @@ export function useTasks(username: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const updateTask = useCallback((id: string, input: NewTaskInput) => {
+  const updateTask = useCallback((id: string, input: NewTaskInput, scope: UpdateScope = 'single') => {
     const day = input.days[0];
     if (day === undefined) return;
 
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              text: input.text,
-              day,
-              weekly: input.weekly,
-              timeMode: input.timeMode,
-              duration: input.duration,
-              startTime: input.startTime,
-              endTime: input.endTime,
-            }
-          : task,
-      ),
-    );
+    const sharedFields = {
+      text: input.text,
+      weekly: input.weekly,
+      timeMode: input.timeMode,
+      duration: input.duration,
+      startTime: input.startTime,
+      endTime: input.endTime,
+    };
+
+    setTasks((prev) => {
+      const task = prev.find((item) => item.id === id);
+      if (!task) return prev;
+
+      if (scope === 'all' && task.groupId) {
+        return prev.map((item) =>
+          item.groupId === task.groupId ? { ...item, ...sharedFields } : item,
+        );
+      }
+
+      return prev.map((item) =>
+        item.id === id
+          ? { ...item, ...sharedFields, day, groupId: task.groupId ? undefined : item.groupId }
+          : item,
+      );
+    });
   }, []);
 
   const getTasksForDay = useCallback(
