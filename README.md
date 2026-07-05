@@ -25,7 +25,7 @@ Um planejador semanal simples, minimalista e fácil de usar — pensado para ser
 
 **Você está na rua?** Abra este link no celular, faça login no Vercel e clique em Deploy. O Vercel cria o banco Supabase automaticamente e configura tudo:
 
-**[Deploy no Vercel com Supabase](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdiogotupi%2Fweek-planner%2Ftree%2Fcursor%2Fsupabase-sync-1461&project-name=week-planner&repository-name=week-planner&env=VITE_SUPABASE_URL%2CVITE_SUPABASE_ANON_KEY%2CNEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CPOSTGRES_URL&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22supabase%22%2C%22productSlug%22%3A%22supabase%22%7D%5D)**
+**[Deploy no Vercel com Supabase](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdiogotupi%2Fweek-planner%2Ftree%2Fmain&project-name=week-planner&repository-name=week-planner&env=VITE_SUPABASE_URL%2CVITE_SUPABASE_ANON_KEY%2CNEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CPOSTGRES_URL&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22supabase%22%2C%22productSlug%22%3A%22supabase%22%7D%5D)**
 
 O que acontece automaticamente:
 1. Vercel importa o projeto do GitHub
