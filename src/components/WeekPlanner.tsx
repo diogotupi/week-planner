@@ -30,19 +30,21 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
         </div>
       </header>
 
-      <div className="days-grid">
-        {ALL_DAYS.map((day) => (
-          <DayColumn
-            key={day}
-            day={day}
-            tasks={getTasksForDay(day)}
-            currentWeek={currentWeek}
-            onAdd={addTasks}
-            onUpdate={updateTask}
-            onToggle={toggleTask}
-            onRemove={removeTask}
-          />
-        ))}
+      <div className="days-grid-wrapper">
+        <div className="days-grid">
+          {ALL_DAYS.map((day) => (
+            <DayColumn
+              key={day}
+              day={day}
+              tasks={getTasksForDay(day)}
+              currentWeek={currentWeek}
+              onAdd={addTasks}
+              onUpdate={updateTask}
+              onToggle={toggleTask}
+              onRemove={removeTask}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

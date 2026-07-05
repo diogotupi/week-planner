@@ -26,6 +26,7 @@ function getTimeLabel(task: Task): string {
 export function TaskItem({ task, currentWeek, onToggle, onEdit, onRemove }: TaskItemProps) {
   const [animating, setAnimating] = useState(false);
   const completed = isTaskCompleted(task.completedWeeks, currentWeek);
+  const timeLabel = getTimeLabel(task);
 
   function handleToggle() {
     if (!completed) {
@@ -79,8 +80,12 @@ export function TaskItem({ task, currentWeek, onToggle, onEdit, onRemove }: Task
         title="Editar tarefa"
       >
         <p className="task-text">{task.text}</p>
-        <p className="task-time">{getTimeLabel(task)}</p>
-        {task.weekly && <span className="task-badge">Toda semana</span>}
+        {(timeLabel || task.weekly) && (
+          <div className="task-meta">
+            {timeLabel && <span className="task-time">{timeLabel}</span>}
+            {task.weekly && <span className="task-badge">Toda semana</span>}
+          </div>
+        )}
       </div>
 
       <div className="task-actions">
