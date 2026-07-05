@@ -80,6 +80,22 @@ export function useTasks(username: string) {
     [currentWeek],
   );
 
+  const completeTask = useCallback(
+    (id: string) => {
+      setTasks((prev) =>
+        prev.map((task) => {
+          if (task.id !== id) return task;
+          if (task.completedWeeks.includes(currentWeek)) return task;
+          return {
+            ...task,
+            completedWeeks: [...task.completedWeeks, currentWeek],
+          };
+        }),
+      );
+    },
+    [currentWeek],
+  );
+
   const removeTask = useCallback((id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
@@ -116,5 +132,5 @@ export function useTasks(username: string) {
     [tasks, currentWeek],
   );
 
-  return { tasks, addTasks, updateTask, toggleTask, removeTask, getTasksForDay, currentWeek };
+  return { tasks, addTasks, updateTask, toggleTask, completeTask, removeTask, getTasksForDay, currentWeek };
 }

@@ -160,6 +160,32 @@ body {
   letter-spacing: 0.04em;
 }
 
+.day-summary {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(45, 106, 79, 0.04);
+}
+
+.day-summary-total {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+
+.day-summary-wake {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.day-summary-wake-item {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
 .day-tasks {
   flex: 1;
   padding: 0.55rem;
@@ -223,6 +249,12 @@ body {
 .task-item.completed {
   background: var(--accent-light);
   border-color: rgba(45, 106, 79, 0.25);
+}
+
+.task-item.running {
+  border-color: var(--accent);
+  background: rgba(45, 106, 79, 0.06);
+  box-shadow: 0 0 0 1px rgba(45, 106, 79, 0.15);
 }
 
 .task-item.celebrate {
@@ -330,6 +362,11 @@ body {
   line-height: 1.2;
 }
 
+.task-time-running {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .task-badge {
   display: inline-block;
   font-size: 0.625rem;
@@ -347,17 +384,32 @@ body {
   display: flex;
   flex-direction: row;
   gap: 0.1rem;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.task-item:hover .task-actions,
-.task-item:focus-within .task-actions {
-  opacity: 1;
 }
 
 .task-edit,
 .task-remove {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.task-item:hover .task-edit,
+.task-item:hover .task-remove,
+.task-item:focus-within .task-edit,
+.task-item:focus-within .task-remove,
+.task-edit:focus-visible,
+.task-remove:focus-visible {
+  opacity: 1;
+}
+
+.task-edit:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.task-edit,
+.task-remove,
+.task-start,
+.task-stop {
   flex-shrink: 0;
   width: 22px;
   height: 22px;
@@ -371,18 +423,35 @@ body {
   transition: background 0.15s, color 0.15s;
 }
 
+.task-start,
+.task-stop {
+  font-size: 0.65rem;
+}
+
+.task-start:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .task-remove {
   font-size: 1.1rem;
 }
 
 .task-edit:focus-visible,
-.task-remove:focus-visible {
+.task-remove:focus-visible,
+.task-start:focus-visible,
+.task-stop:focus-visible {
   opacity: 1;
 }
 
-.task-edit:hover {
+.task-start:hover:not(:disabled) {
   background: var(--accent-light);
   color: var(--accent);
+}
+
+.task-stop:hover {
+  background: #fde8e8;
+  color: #c0392b;
 }
 
 .task-remove:hover {

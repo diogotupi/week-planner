@@ -1,13 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Task } from '../types';
-import { formatDuration, isTaskCompleted } from '../utils';
+import {
+  formatDuration,
+  formatRemainingMs,
+  getTaskDurationMinutes,
+  isTaskCompleted,
+} from '../utils';
 
 interface TaskItemProps {
   task: Task;
   currentWeek: string;
+  isRunning: boolean;
+  remainingMs: number;
+  canStartTimer: boolean;
   onToggle: (id: string) => void;
   onEdit: (task: Task) => void;
   onRemove: (id: string) => void;
+  onStart: (id: string) => void;
+  onStop: () => void;
 }
 
 function getTimeLabel(task: Task): string {
@@ -23,10 +33,39 @@ function getTimeLabel(task: Task): string {
   }
 }
 
-export function TaskItem({ task, currentWeek, onToggle, onEdit, onRemove }: TaskItemProps) {
+export function TaskItem({
+  task,
+  currentWeek,
+  isRunning,
+  remainingMs,
+  canStartTimer,
+  onToggle,
+  onEdit,
+  onRemove,
+  onStart,
+  onStop,
+}: TaskItemProps) {
   const [animating, setAnimating] = useState(false);
+  const wasRunning = useRef(false);
   const completed = isTaskCompleted(task.completedWeeks, currentWeek);
   const timeLabel = getTimeLabel(task);
+  const hasDuration = task.timeMode === 'duration' && getTaskDurationMinutes(task) !== null;
+
+  useEffect(() => {
+    if (isRunning) {
+      wasRunning.current = true;
+      return;
+    }
+
+    if (wasRunning.current && completed) {
+      setAnimating(true);
+      wasRunning.current = false;
+      const timeout = setTimeout(() => setAnimating(false), 700);
+      return () => clearTimeout(timeout);
+    }
+
+    wasRunning.current = false;
+  }, [isRunning, completed]);
 
   function handleToggle() {
     if (!completed) {
@@ -36,8 +75,20 @@ export function TaskItem({ task, currentWeek, onToggle, onEdit, onRemove }: Task
     onToggle(task.id);
   }
 
+  function handleStart(e: React.MouseEvent) {
+    e.stopPropagation();
+    onStart(task.id);
+  }
+
+  function handleStop(e: React.MouseEvent) {
+    e.stopPropagation();
+    onStop();
+  }
+
   return (
-    <div className={`task-item ${completed ? 'completed' : ''} ${animating ? 'celebrate' : ''}`}>
+    <div
+      className={`task-item ${completed ? 'completed' : ''} ${animating ? 'celebrate' : ''} ${isRunning ? 'running' : ''}`}
+    >
       {animating && (
         <div className="confetti" aria-hidden="true">
           {Array.from({ length: 8 }, (_, i) => (
@@ -80,19 +131,53 @@ export function TaskItem({ task, currentWeek, onToggle, onEdit, onRemove }: Task
         title="Editar tarefa"
       >
         <p className="task-text">{task.text}</p>
-        {(timeLabel || task.weekly) && (
+        {(timeLabel || task.weekly || isRunning) && (
           <div className="task-meta">
-            {timeLabel && <span className="task-time">{timeLabel}</span>}
+            {isRunning ? (
+              <span className="task-time task-time-running">
+                ⏳ {formatRemainingMs(remainingMs)} restantes
+              </span>
+            ) : (
+              timeLabel && <span className="task-time">{timeLabel}</span>
+            )}
             {task.weekly && <span className="task-badge">Toda semana</span>}
           </div>
         )}
       </div>
 
       <div className="task-actions">
+        {hasDuration && !completed && (
+          isRunning ? (
+            <button
+              type="button"
+              className="task-stop"
+              onClick={handleStop}
+              aria-label="Parar timer"
+              title="Parar"
+            >
+              ■
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="task-start"
+              onClick={handleStart}
+              disabled={!canStartTimer}
+              aria-label="Iniciar tarefa"
+              title={canStartTimer ? 'Iniciar' : 'Outra tarefa em andamento'}
+            >
+              ▶
+            </button>
+          )
+        )}
+
         <button
           type="button"
           className="task-edit"
-          onClick={() => onEdit(task)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(task);
+          }}
           aria-label="Editar tarefa"
           title="Editar"
         >
@@ -102,7 +187,10 @@ export function TaskItem({ task, currentWeek, onToggle, onEdit, onRemove }: Task
         <button
           type="button"
           className="task-remove"
-          onClick={() => onRemove(task.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(task.id);
+          }}
           aria-label="Remover tarefa"
           title="Remover"
         >

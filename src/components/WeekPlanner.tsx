@@ -1,5 +1,7 @@
+import { useCallback } from 'react';
 import type { DayOfWeek } from '../types';
 import { useTasks } from '../hooks/useTasks';
+import { useTaskTimer } from '../hooks/useTaskTimer';
 import { DayColumn } from './DayColumn';
 
 const ALL_DAYS: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6];
@@ -11,8 +13,28 @@ interface WeekPlannerProps {
 }
 
 export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProps) {
-  const { addTasks, updateTask, toggleTask, removeTask, getTasksForDay, currentWeek } =
+  const { addTasks, updateTask, toggleTask, completeTask, removeTask, getTasksForDay, currentWeek } =
     useTasks(username);
+
+  const handleTimerComplete = useCallback(
+    (taskId: string) => {
+      completeTask(taskId);
+    },
+    [completeTask],
+  );
+
+  const { activeTaskId, remainingMs, startTimer, stopTimer } =
+    useTaskTimer(handleTimerComplete);
+
+  function handleToggle(id: string) {
+    if (activeTaskId === id) stopTimer();
+    toggleTask(id);
+  }
+
+  function handleRemove(id: string) {
+    if (activeTaskId === id) stopTimer();
+    removeTask(id);
+  }
 
   return (
     <div className="planner">
@@ -38,10 +60,14 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
               day={day}
               tasks={getTasksForDay(day)}
               currentWeek={currentWeek}
+              activeTaskId={activeTaskId}
+              remainingMs={remainingMs}
               onAdd={addTasks}
               onUpdate={updateTask}
-              onToggle={toggleTask}
-              onRemove={removeTask}
+              onToggle={handleToggle}
+              onRemove={handleRemove}
+              onStartTask={startTimer}
+              onStopTask={stopTimer}
             />
           ))}
         </div>
