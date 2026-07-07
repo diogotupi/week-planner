@@ -1,4 +1,4 @@
-import type { DayOfWeek, Task } from './types';
+import type { DayOfWeek, DayStats, LeroLeroState, Task, TaskTimerState } from './types';
 
 export function getWeekKey(date = new Date()): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -17,11 +17,286 @@ export function isTaskVisible(
   return weekly || createdWeek === currentWeek;
 }
 
+export function getTodayDayOfWeek(): DayOfWeek {
+  const dow = new Date().getDay();
+  return (dow === 0 ? 6 : dow - 1) as DayOfWeek;
+}
+
+export function parseTimeToDate(time: string, ref = new Date()): Date {
+  const [h, m] = time.split(':').map(Number);
+  const d = new Date(ref);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+export function isWithinSchedule(
+  now: Date,
+  startTime: string,
+  endTime: string,
+): boolean {
+  const start = parseTimeToDate(startTime, now);
+  const end = parseTimeToDate(endTime, now);
+  return now >= start && now < end;
+}
+
+export function getScheduleOverlapMs(
+  rangeStart: number,
+  rangeEnd: number,
+  startTime: string,
+  endTime: string,
+  ref: Date,
+): number {
+  const blockStart = parseTimeToDate(startTime, ref).getTime();
+  const blockEnd = parseTimeToDate(endTime, ref).getTime();
+  const overlapStart = Math.max(rangeStart, blockStart);
+  const overlapEnd = Math.min(rangeEnd, blockEnd);
+  return Math.max(0, overlapEnd - overlapStart);
+}
+
+export function formatElapsedMs(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+export function areAllTasksDoneToday(tasks: Task[], ref = new Date()): boolean {
+  return tasks.length > 0 && tasks.every((task) => isTaskDoneForDay(task, ref));
+}
+
+export function getActiveScheduleBlock(
+  tasks: Task[],
+  ref = new Date(),
+): { text: string; endTime: string } | null {
+  for (const task of tasks) {
+    if (task.timeMode !== 'schedule' || !task.startTime || !task.endTime) continue;
+    if (isTaskDoneForDay(task, ref)) continue;
+    if (isWithinSchedule(ref, task.startTime, task.endTime)) {
+      return { text: task.text, endTime: task.endTime };
+    }
+  }
+  return null;
+}
+
+function computeSegmentMs(
+  segmentStart: number,
+  now: number,
+  scheduledTasks: Task[],
+  ref: Date,
+): number {
+  let elapsed = now - segmentStart;
+  for (const task of scheduledTasks) {
+    if (!task.startTime || !task.endTime) continue;
+    elapsed -= getScheduleOverlapMs(segmentStart, now, task.startTime, task.endTime, ref);
+  }
+  return Math.max(0, elapsed);
+}
+
+export function computeLeroLeroMs(
+  segmentStart: number | null,
+  accumulatedMs: number,
+  scheduledTasks: Task[],
+  ref = new Date(),
+): number {
+  if (!segmentStart) return accumulatedMs;
+  return accumulatedMs + computeSegmentMs(segmentStart, ref.getTime(), scheduledTasks, ref);
+}
+
 export function getDateKey(date = new Date()): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+export function getDayOfWeekForDate(dateKey: string): DayOfWeek {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const dow = date.getDay();
+  return (dow === 0 ? 6 : dow - 1) as DayOfWeek;
+}
+
+export function nextDateKey(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + 1);
+  return getDateKey(date);
+}
+
+export function emptyLeroLero(dateKey = getDateKey()): LeroLeroState {
+  return {
+    dateKey,
+    accumulatedMs: 0,
+    segmentStart: null,
+    hasStarted: false,
+    allDone: false,
+  };
+}
+
+export function normalizeLeroLero(raw: unknown, todayKey = getDateKey()): LeroLeroState {
+  if (!raw || typeof raw !== 'object') return emptyLeroLero(todayKey);
+  const state = raw as Partial<LeroLeroState>;
+  if (state.dateKey !== todayKey) return emptyLeroLero(todayKey);
+  return {
+    dateKey: todayKey,
+    accumulatedMs: typeof state.accumulatedMs === 'number' ? state.accumulatedMs : 0,
+    segmentStart: typeof state.segmentStart === 'number' ? state.segmentStart : null,
+    hasStarted: Boolean(state.hasStarted),
+    allDone: Boolean(state.allDone),
+  };
+}
+
+export function emptyTaskTimer(dateKey = getDateKey()): TaskTimerState {
+  return { dateKey, active: null, paused: {} };
+}
+
+export function normalizeTaskTimer(raw: unknown, todayKey = getDateKey()): TaskTimerState {
+  if (!raw || typeof raw !== 'object') return emptyTaskTimer(todayKey);
+  const state = raw as Partial<TaskTimerState>;
+  if (state.dateKey !== todayKey) return emptyTaskTimer(todayKey);
+
+  const activeRaw =
+    state.active &&
+    typeof state.active.taskId === 'string' &&
+    typeof state.active.endsAt === 'number'
+      ? state.active
+      : null;
+
+  let active: TaskTimerState['active'] = null;
+  if (activeRaw) {
+    const inOvertime =
+      Boolean(activeRaw.inOvertime) || activeRaw.endsAt <= Date.now();
+    active = {
+      taskId: activeRaw.taskId,
+      endsAt: activeRaw.endsAt,
+      inOvertime,
+    };
+  }
+
+  const paused: Record<string, number> = {};
+  if (state.paused && typeof state.paused === 'object') {
+    for (const [taskId, remaining] of Object.entries(state.paused)) {
+      if (typeof remaining === 'number' && remaining !== 0) {
+        paused[taskId] = remaining;
+      }
+    }
+  }
+
+  return { dateKey: todayKey, active, paused };
+}
+
+export function pruneTaskTimerForTasks(
+  timer: TaskTimerState,
+  tasks: Task[],
+): TaskTimerState {
+  const isRunning = (taskId: string) => {
+    const task = tasks.find((item) => item.id === taskId);
+    return Boolean(task && !isTaskDoneForDay(task));
+  };
+
+  let active = timer.active;
+  if (active && !isRunning(active.taskId)) {
+    active = null;
+  }
+
+  const paused: Record<string, number> = {};
+  for (const [taskId, remaining] of Object.entries(timer.paused)) {
+    if (isRunning(taskId)) {
+      paused[taskId] = remaining;
+    }
+  }
+
+  if (active === timer.active) {
+    const pausedKeys = Object.keys(paused);
+    const prevKeys = Object.keys(timer.paused);
+    if (
+      pausedKeys.length === prevKeys.length &&
+      pausedKeys.every((key) => paused[key] === timer.paused[key])
+    ) {
+      return timer;
+    }
+  }
+
+  return { ...timer, active, paused };
+}
+
+export function mergeTaskTimer(local: TaskTimerState, remote: TaskTimerState): TaskTimerState {
+  const todayKey = getDateKey();
+  if (local.dateKey !== todayKey && remote.dateKey === todayKey) return remote;
+  if (remote.dateKey !== todayKey && local.dateKey === todayKey) return local;
+  if (local.dateKey !== todayKey && remote.dateKey !== todayKey) {
+    return emptyTaskTimer(todayKey);
+  }
+
+  let active: TaskTimerState['active'] = remote.active ?? local.active;
+  if (local.active && remote.active) {
+    if (local.active.taskId === remote.active.taskId) {
+      const picked =
+        local.active.endsAt < remote.active.endsAt ? local.active : remote.active;
+      active = {
+        ...picked,
+        inOvertime:
+          Boolean(local.active.inOvertime) ||
+          Boolean(remote.active.inOvertime) ||
+          picked.endsAt <= Date.now(),
+      };
+    } else {
+      active = {
+        ...remote.active,
+        inOvertime: Boolean(remote.active.inOvertime) || remote.active.endsAt <= Date.now(),
+      };
+    }
+  } else if (active) {
+    active = {
+      ...active,
+      inOvertime: Boolean(active.inOvertime) || active.endsAt <= Date.now(),
+    };
+  }
+
+  const paused = { ...local.paused };
+  for (const [taskId, remaining] of Object.entries(remote.paused)) {
+    if (paused[taskId] === undefined) {
+      paused[taskId] = remaining;
+    } else {
+      paused[taskId] = Math.min(paused[taskId], remaining);
+    }
+  }
+
+  return { dateKey: todayKey, active, paused };
+}
+
+export function applyMidnightRolloverForDate(tasks: Task[], dateKey: string): Task[] {
+  const day = getDayOfWeekForDate(dateKey);
+  return tasks.map((task) => {
+    if (task.day !== day) return task;
+    if (task.completedDates.includes(dateKey)) return task;
+    if ((task.cancelledDates ?? []).includes(dateKey)) return task;
+    if ((task.efficientDates ?? task.incompleteDates ?? []).includes(dateKey)) return task;
+    if ((task.overtimeDates ?? []).includes(dateKey)) return task;
+    return {
+      ...task,
+      cancelledDates: [...(task.cancelledDates ?? []), dateKey],
+    };
+  });
+}
+
+export function applyMissedMidnightRollovers(
+  tasks: Task[],
+  lastActiveDateKey: string | null | undefined,
+  todayKey = getDateKey(),
+): Task[] {
+  if (!lastActiveDateKey || lastActiveDateKey >= todayKey) return tasks;
+  let result = tasks;
+  let current = lastActiveDateKey;
+  while (current < todayKey) {
+    result = applyMidnightRolloverForDate(result, current);
+    current = nextDateKey(current);
+  }
+  return result;
 }
 
 export function getDateForDayOfWeek(day: DayOfWeek, ref = new Date()): string {
@@ -62,6 +337,40 @@ export function isTaskCompleted(
 ): boolean {
   const taskDate = getDateForDayOfWeek(taskDay, ref);
   return completedDates.includes(taskDate);
+}
+
+export function isTaskCancelled(task: Task, ref = new Date()): boolean {
+  const taskDate = getDateForDayOfWeek(task.day, ref);
+  const today = getDateKey(ref);
+  if (today !== taskDate) return false;
+  return (task.cancelledDates ?? []).includes(taskDate);
+}
+
+export function isTaskEfficient(task: Task, ref = new Date()): boolean {
+  const taskDate = getDateForDayOfWeek(task.day, ref);
+  const today = getDateKey(ref);
+  if (today !== taskDate) return false;
+  return (task.efficientDates ?? task.incompleteDates ?? []).includes(taskDate);
+}
+
+export function isTaskOvertimeDone(task: Task, ref = new Date()): boolean {
+  const taskDate = getDateForDayOfWeek(task.day, ref);
+  const today = getDateKey(ref);
+  if (today !== taskDate) return false;
+  return (task.overtimeDates ?? []).includes(taskDate);
+}
+
+export function isTaskDoneForDay(task: Task, ref = new Date()): boolean {
+  return (
+    isTaskCompleted(task.completedDates, task.day, ref) ||
+    isTaskCancelled(task, ref) ||
+    isTaskEfficient(task, ref) ||
+    isTaskOvertimeDone(task, ref)
+  );
+}
+
+export function isTaskDayToday(taskDay: DayOfWeek, ref = new Date()): boolean {
+  return getDateKey(ref) === getDateForDayOfWeek(taskDay, ref);
 }
 
 export function formatDuration(value: string): string {
@@ -120,11 +429,84 @@ export function formatFinishTime(
 }
 
 export function formatRemainingMs(ms: number): string {
-  const totalSeconds = Math.ceil(ms / 1000);
+  const overtime = ms < 0;
+  const totalSeconds = Math.ceil(Math.abs(ms) / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  if (minutes === 0) return `${seconds}s`;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  const body =
+    minutes === 0 ? `${seconds}s` : `${minutes}:${String(seconds).padStart(2, '0')}`;
+  return overtime ? `+${body} extra` : body;
+}
+
+export function formatDateLabel(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+}
+
+export function getDateKeyForDay(day: DayOfWeek, ref = new Date()): string {
+  return getDateForDayOfWeek(day, ref);
+}
+
+export function dateFromKey(dateKey: string): Date {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+export function buildDayStats(
+  tasks: Task[],
+  leroLero: LeroLeroState,
+  dateKey: string,
+): DayStats {
+  const day = getDayOfWeekForDate(dateKey);
+  const dayTasks = tasks.filter((task) => task.day === day);
+
+  let tasksCompleted = 0;
+  let tasksEfficient = 0;
+  let tasksOvertime = 0;
+  let tasksCancelled = 0;
+  let tasksNotDone = 0;
+
+  for (const task of dayTasks) {
+    if ((task.efficientDates ?? task.incompleteDates ?? []).includes(dateKey)) {
+      tasksEfficient++;
+    } else if ((task.overtimeDates ?? []).includes(dateKey)) {
+      tasksOvertime++;
+    } else if (task.completedDates.includes(dateKey)) {
+      tasksCompleted++;
+    } else if ((task.cancelledDates ?? []).includes(dateKey)) {
+      tasksCancelled++;
+    } else {
+      const ref = dateFromKey(dateKey);
+      ref.setHours(12, 0, 0, 0);
+      if (!isTaskDoneForDay(task, ref)) {
+        tasksNotDone++;
+      }
+    }
+  }
+
+  const leroLeroMs =
+    leroLero.dateKey === dateKey
+      ? computeLeroLeroMs(
+          leroLero.segmentStart,
+          leroLero.accumulatedMs,
+          dayTasks.filter(
+            (t) =>
+              t.timeMode === 'schedule' && t.startTime && t.endTime && !isTaskDoneForDay(t),
+          ),
+          dateFromKey(dateKey),
+        )
+      : 0;
+
+  return {
+    dateKey,
+    leroLeroMs,
+    tasksCompleted,
+    tasksEfficient,
+    tasksOvertime,
+    tasksCancelled,
+    tasksNotDone,
+  };
 }
 
 export function generateId(): string {

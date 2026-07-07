@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getUsernameFromRequest } from './_lib/auth';
-import { getDb } from './_lib/db';
+import { getUsernameFromRequest } from './_lib/auth.js';
+import { getDb } from './_lib/db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const username = getUsernameFromRequest(req);
@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') {
       const rows = await db`
-        select tasks, updated_at
+        select tasks, lero_lero, task_timer, updated_at
         from user_tasks
         where username = ${username}
         limit 1
@@ -27,23 +27,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const row = rows[0];
       res.status(200).json({
         tasks: row?.tasks ?? [],
+        leroLero: row?.lero_lero ?? null,
+        taskTimer: row?.task_timer ?? null,
         updatedAt: row?.updated_at ?? null,
       });
       return;
     }
 
     if (req.method === 'PUT') {
-      const body = req.body as { tasks?: unknown } | undefined;
+      const body = req.body as {
+        tasks?: unknown;
+        leroLero?: unknown;
+        taskTimer?: unknown;
+      } | undefined;
       if (!Array.isArray(body?.tasks)) {
         res.status(400).json({ error: 'Formato inválido.' });
         return;
       }
 
+      const leroLero =
+        body.leroLero === null || body.leroLero === undefined
+          ? null
+          : db.json(body.leroLero as import('postgres').JSONValue);
+
+      const taskTimer =
+        body.taskTimer === null || body.taskTimer === undefined
+          ? null
+          : db.json(body.taskTimer as import('postgres').JSONValue);
+
       await db`
-        insert into user_tasks (username, tasks, updated_at)
-        values (${username}, ${db.json(body.tasks)}, now())
+        insert into user_tasks (username, tasks, lero_lero, task_timer, updated_at)
+        values (${username}, ${db.json(body.tasks)}, ${leroLero}, ${taskTimer}, now())
         on conflict (username)
-        do update set tasks = excluded.tasks, updated_at = now()
+        do update set
+          tasks = excluded.tasks,
+          lero_lero = excluded.lero_lero,
+          task_timer = excluded.task_timer,
+          updated_at = now()
       `;
 
       res.status(200).json({ ok: true });

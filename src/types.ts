@@ -13,6 +13,10 @@ export interface Task {
   endTime?: string;
   createdWeek: string;
   completedDates: string[];
+  cancelledDates?: string[];
+  incompleteDates?: string[];
+  efficientDates?: string[];
+  overtimeDates?: string[];
   groupId?: string;
   sortOrder: number;
 }
@@ -26,3 +30,27 @@ export const DAYS = [
   'Sábado',
   'Domingo',
 ] as const;
+
+export interface LeroLeroState {
+  dateKey: string;
+  accumulatedMs: number;
+  segmentStart: number | null;
+  hasStarted: boolean;
+  allDone: boolean;
+}
+
+export interface TaskTimerState {
+  dateKey: string;
+  active: { taskId: string; endsAt: number; inOvertime: boolean } | null;
+  paused: Record<string, number>;
+}
+
+export interface DayStats {
+  dateKey: string;
+  leroLeroMs: number;
+  tasksCompleted: number;
+  tasksEfficient: number;
+  tasksOvertime: number;
+  tasksCancelled: number;
+  tasksNotDone: number;
+}

@@ -6,7 +6,20 @@ const SCHEMA_SQL = `
 create table if not exists user_tasks (
   username text primary key,
   tasks jsonb not null default '[]'::jsonb,
+  lero_lero jsonb,
+  task_timer jsonb,
   updated_at timestamptz not null default now()
+);
+
+alter table user_tasks add column if not exists lero_lero jsonb;
+alter table user_tasks add column if not exists task_timer jsonb;
+
+create table if not exists user_day_stats (
+  username text not null,
+  date_key text not null,
+  stats jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (username, date_key)
 );
 `;
 

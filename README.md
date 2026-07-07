@@ -1,4 +1,4 @@
-# Planejador da Semana
+# Tupi Planner
 
 Um planejador semanal simples, minimalista e fácil de usar — pensado para ser claro e acessível.
 

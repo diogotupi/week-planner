@@ -3,7 +3,7 @@ import {
   formatFinishTime,
   formatTotalMinutes,
   getTaskDurationMinutes,
-  isTaskCompleted,
+  isTaskDoneForDay,
 } from '../utils';
 
 const WAKE_HOURS = [7, 8, 9];
@@ -13,9 +13,7 @@ interface DaySummaryProps {
 }
 
 export function DaySummary({ tasks }: DaySummaryProps) {
-  const pendingTasks = tasks.filter(
-    (task) => !isTaskCompleted(task.completedDates, task.day),
-  );
+  const pendingTasks = tasks.filter((task) => !isTaskDoneForDay(task));
 
   const totalMinutes = pendingTasks.reduce((sum, task) => {
     const minutes = getTaskDurationMinutes(task);

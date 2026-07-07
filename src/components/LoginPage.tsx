@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { unlockTaskSounds } from '../lib/taskSounds';
 
 interface LoginPageProps {
   onLogin: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
@@ -20,6 +21,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }
 
     setSubmitting(true);
+    unlockTaskSounds();
     const result = await onLogin(username, password);
     setSubmitting(false);
 
@@ -31,7 +33,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1 className="login-title">Planejador da Semana</h1>
+        <h1 className="login-title">Tupi Planner</h1>
         <p className="login-subtitle">Entre para ver suas tarefas</p>
 
         <form onSubmit={handleSubmit} className="login-form">
