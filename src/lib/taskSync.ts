@@ -6,6 +6,7 @@ import {
   emptyLeroLero,
   emptyTaskTimer,
   getDateKey,
+  getLeroLeroTotalMs,
   getTodayDayOfWeek,
   getWeekKey,
   isTaskDoneForDay,
@@ -219,7 +220,16 @@ function reconcilePlannerData(
     leroLero = emptyLeroLero(todayKey);
   } else if (local.leroLero.dateKey === todayKey && local.leroLero.hasStarted) {
     const scheduledTasks = getTodayScheduledTasks(tasks);
-    leroLero = mergeLeroLeroStates(local.leroLero, leroLero, scheduledTasks);
+    const localTotal = getLeroLeroTotalMs(local.leroLero, scheduledTasks);
+    const remoteTotal = getLeroLeroTotalMs(leroLero, scheduledTasks);
+    const remoteLooksHealed =
+      leroLero.segmentStart === null &&
+      remoteTotal > 0 &&
+      localTotal > remoteTotal + 15 * 60 * 1000;
+
+    leroLero = remoteLooksHealed
+      ? leroLero
+      : mergeLeroLeroStates(local.leroLero, leroLero, scheduledTasks);
   }
 
   let taskTimer = normalizeTaskTimer(remoteTaskTimer, todayKey);
