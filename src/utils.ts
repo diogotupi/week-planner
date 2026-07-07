@@ -36,14 +36,32 @@ export function getDateForDayOfWeek(day: DayOfWeek, ref = new Date()): string {
   return getDateKey(target);
 }
 
+export function getTodayDayOfWeek(ref = new Date()): DayOfWeek {
+  const dow = ref.getDay();
+  return (dow === 0 ? 6 : dow - 1) as DayOfWeek;
+}
+
+const MONTHS_SHORT = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+] as const;
+
+export function formatColumnDate(dateKey: string): string {
+  const [, month, day] = dateKey.split('-');
+  return `${Number(day)} de ${MONTHS_SHORT[Number(month) - 1]}`;
+}
+
+export function isDayToday(day: DayOfWeek, ref = new Date()): boolean {
+  return getTodayDayOfWeek(ref) === day;
+}
+
 export function isTaskCompleted(
   completedDates: string[],
   taskDay: DayOfWeek,
   ref = new Date(),
 ): boolean {
   const taskDate = getDateForDayOfWeek(taskDay, ref);
-  const today = getDateKey(ref);
-  return today === taskDate && completedDates.includes(taskDate);
+  return completedDates.includes(taskDate);
 }
 
 export function formatDuration(value: string): string {
