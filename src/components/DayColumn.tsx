@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { DayOfWeek, Task } from '../types';
 import { DAYS } from '../types';
 import type { NewTaskInput, UpdateScope } from '../hooks/useTasks';
-import { getTaskDurationMinutes } from '../utils';
+import { formatColumnDate, getDateForDayOfWeek, getTaskDurationMinutes, isDayToday } from '../utils';
 import { AddTaskModal } from './AddTaskModal';
 import { DaySummary } from './DaySummary';
 import { TaskItem } from './TaskItem';
@@ -40,7 +40,8 @@ export function DayColumn({
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const isToday = new Date().getDay() === (day === 6 ? 0 : day + 1);
+  const isToday = isDayToday(day);
+  const columnDate = getDateForDayOfWeek(day);
 
   function handleStart(taskId: string) {
     const task = tasks.find((item) => item.id === taskId);
@@ -90,9 +91,14 @@ export function DayColumn({
   }
 
   return (
-    <section className={`day-column ${isToday ? 'today' : ''}`}>
+    <section className={`day-column ${isToday ? 'today' : ''}`} data-day={day}>
       <header className="day-header">
-        <h2 className="day-name">{DAYS[day]}</h2>
+        <div className="day-header-titles">
+          <h2 className="day-name">{DAYS[day]}</h2>
+          <p className="day-date" aria-label={`Data: ${columnDate}`}>
+            {formatColumnDate(columnDate)}
+          </p>
+        </div>
         {isToday && <span className="today-badge">Hoje</span>}
       </header>
 

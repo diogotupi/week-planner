@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { isSyncEnabled } from '../lib/api';
 import type { DayOfWeek } from '../types';
 import { useTasks } from '../hooks/useTasks';
 import { useTaskTimer } from '../hooks/useTaskTimer';
+import { getTodayDayOfWeek } from '../utils';
 import { DayColumn } from './DayColumn';
 
 const ALL_DAYS: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6];
@@ -37,6 +38,22 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
 
   const { activeTaskId, remainingMs, startTimer, stopTimer } =
     useTaskTimer(handleTimerComplete);
+
+  const daysGridRef = useRef<HTMLDivElement>(null);
+  const hasScrolledToToday = useRef(false);
+
+  useEffect(() => {
+    if (loading || hasScrolledToToday.current) return;
+
+    const todayDay = getTodayDayOfWeek();
+    const todayColumn = daysGridRef.current?.querySelector(
+      `[data-day="${todayDay}"]`,
+    );
+    if (!todayColumn) return;
+
+    hasScrolledToToday.current = true;
+    todayColumn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [loading]);
 
   function handleToggle(id: string) {
     if (activeTaskId === id) stopTimer();
@@ -79,7 +96,7 @@ export function WeekPlanner({ username, displayName, onLogout }: WeekPlannerProp
         </div>
       </header>
 
-      <div className="days-grid-wrapper">
+      <div className="days-grid-wrapper" ref={daysGridRef}>
         <div className="days-grid">
           {ALL_DAYS.map((day) => (
             <DayColumn
