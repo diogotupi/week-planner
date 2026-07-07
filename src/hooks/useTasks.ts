@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchPlannerData, savePlannerData } from '../lib/taskSync';
 import { saveDayStats } from '../lib/dayStatsSync';
-import type { DayOfWeek, LeroLeroState, Task, TaskTimerState } from '../types';
+import type { DayOfWeek, LeroLeroState, Task, TaskTimerState, UserPreferences } from '../types';
+import { DEFAULT_USER_PREFERENCES } from '../types';
 import {
   applyMidnightRolloverForDate,
   buildDayStats,
@@ -30,11 +31,15 @@ export function useTasks(username: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [leroLero, setLeroLero] = useState<LeroLeroState>(() => emptyLeroLero());
   const [taskTimer, setTaskTimer] = useState<TaskTimerState>(() => emptyTaskTimer());
+  const [preferences, setPreferences] = useState<UserPreferences>(() => ({
+    ...DEFAULT_USER_PREFERENCES,
+  }));
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [todayKey, setTodayKey] = useState(() => getDateKey());
   const currentWeek = getWeekKey();
+  const weekViewMode = preferences.weekViewMode;
   const skipSaveRef = useRef(true);
   const todayKeyRef = useRef(todayKey);
   const leroLeroRef = useRef(leroLero);
@@ -58,6 +63,7 @@ export function useTasks(username: string) {
       setTasks(data.tasks);
       setLeroLero(data.leroLero);
       setTaskTimer(pruneTaskTimerForTasks(data.taskTimer, data.tasks));
+      setPreferences(data.preferences);
       setTodayKey(getDateKey());
       setLoading(false);
       skipSaveRef.current = false;
@@ -75,7 +81,7 @@ export function useTasks(username: string) {
       setSyncing(true);
       setSyncError(null);
 
-      savePlannerData(username, { tasks, leroLero, taskTimer })
+      savePlannerData(username, { tasks, leroLero, taskTimer, preferences })
         .catch(() => {
           setSyncError('Não foi possível sincronizar. Dados salvos localmente.');
         })
@@ -85,7 +91,7 @@ export function useTasks(username: string) {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [tasks, leroLero, taskTimer, username, loading]);
+  }, [tasks, leroLero, taskTimer, preferences, username, loading]);
 
   useEffect(() => {
     let timerId = 0;
@@ -162,7 +168,7 @@ export function useTasks(username: string) {
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== id) return task;
-        const taskDate = getDateForDayOfWeek(task.day);
+        const taskDate = getDateForDayOfWeek(task.day, new Date(), weekViewMode);
         const done = task.completedDates.includes(taskDate);
         const efficient = (task.efficientDates ?? task.incompleteDates ?? []).includes(taskDate);
         const overtime = (task.overtimeDates ?? []).includes(taskDate);
@@ -185,13 +191,13 @@ export function useTasks(username: string) {
         };
       }),
     );
-  }, []);
+  }, [weekViewMode]);
 
   const cancelTask = useCallback((id: string) => {
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== id) return task;
-        const taskDate = getDateForDayOfWeek(task.day);
+        const taskDate = getDateForDayOfWeek(task.day, new Date(), weekViewMode);
         const cancelled = (task.cancelledDates ?? []).includes(taskDate);
         if (cancelled) {
           return {
@@ -209,13 +215,13 @@ export function useTasks(username: string) {
         };
       }),
     );
-  }, []);
+  }, [weekViewMode]);
 
   const completeTaskEfficient = useCallback((id: string) => {
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== id) return task;
-        const taskDate = getDateForDayOfWeek(task.day);
+        const taskDate = getDateForDayOfWeek(task.day, new Date(), weekViewMode);
         if ((task.efficientDates ?? task.incompleteDates ?? []).includes(taskDate)) return task;
         return {
           ...task,
@@ -227,13 +233,13 @@ export function useTasks(username: string) {
         };
       }),
     );
-  }, []);
+  }, [weekViewMode]);
 
   const completeTaskOvertime = useCallback((id: string) => {
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== id) return task;
-        const taskDate = getDateForDayOfWeek(task.day);
+        const taskDate = getDateForDayOfWeek(task.day, new Date(), weekViewMode);
         if ((task.overtimeDates ?? []).includes(taskDate)) return task;
         return {
           ...task,
@@ -247,11 +253,27 @@ export function useTasks(username: string) {
     );
   }, []);
 
+  const resetTaskCompletionForToday = useCallback((id: string) => {
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id !== id) return task;
+        const taskDate = getDateForDayOfWeek(task.day, new Date(), weekViewMode);
+        return {
+          ...task,
+          completedDates: task.completedDates.filter((d) => d !== taskDate),
+          efficientDates: (task.efficientDates ?? []).filter((d) => d !== taskDate),
+          overtimeDates: (task.overtimeDates ?? []).filter((d) => d !== taskDate),
+          incompleteDates: (task.incompleteDates ?? []).filter((d) => d !== taskDate),
+        };
+      }),
+    );
+  }, [weekViewMode]);
+
   const completeTask = useCallback((id: string) => {
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id !== id) return task;
-        const taskDate = getDateForDayOfWeek(task.day);
+        const taskDate = getDateForDayOfWeek(task.day, new Date(), weekViewMode);
         if (task.completedDates.includes(taskDate)) return task;
         return {
           ...task,
@@ -263,7 +285,7 @@ export function useTasks(username: string) {
         };
       }),
     );
-  }, []);
+  }, [weekViewMode]);
 
   const removeTask = useCallback((id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -392,10 +414,14 @@ export function useTasks(username: string) {
     completeTask,
     completeTaskEfficient,
     completeTaskOvertime,
+    resetTaskCompletionForToday,
     removeTask,
     reorderTasks,
     moveTask,
     getTasksForDay,
+    preferences,
+    setPreferences,
+    weekViewMode,
     currentWeek,
     todayKey,
   };

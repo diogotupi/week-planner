@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Task } from '../types';
+import { useWeekViewMode } from '../context/PlannerSettingsContext';
 import {
   formatDuration,
   formatRemainingMs,
@@ -11,6 +12,7 @@ import {
   isTaskEfficient,
   isTaskOvertimeDone,
 } from '../utils';
+import { AdjustTimerModal } from './AdjustTimerModal';
 
 interface TaskItemProps {
   task: Task;
@@ -22,6 +24,7 @@ interface TaskItemProps {
   anotherTaskRunning: boolean;
   isDragging: boolean;
   isDragOver: boolean;
+  frozen: boolean;
   onToggle: (id: string) => void;
   onCancel: (id: string) => void;
   onEdit: (task: Task) => void;
@@ -29,6 +32,7 @@ interface TaskItemProps {
   onStart: () => void;
   onPause: () => void;
   onFinishEarly: () => void;
+  onAdjustTimer: (remainingMs: number) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent, id: string) => void;
@@ -58,6 +62,7 @@ export function TaskItem({
   anotherTaskRunning,
   isDragging,
   isDragOver,
+  frozen,
   onToggle,
   onCancel,
   onEdit,
@@ -65,25 +70,31 @@ export function TaskItem({
   onStart,
   onPause,
   onFinishEarly,
+  onAdjustTimer,
   onDragStart,
   onDragEnd,
   onDragOver,
   onDrop,
 }: TaskItemProps) {
+  const weekViewMode = useWeekViewMode();
   const [animating, setAnimating] = useState(false);
+  const [showAdjustTimer, setShowAdjustTimer] = useState(false);
   const wasRunning = useRef(false);
   const wasEfficient = useRef(false);
   const wasOvertimeDone = useRef(false);
-  const completed = isTaskCompleted(task.completedDates, task.day);
-  const efficient = isTaskEfficient(task);
-  const overtimeDone = isTaskOvertimeDone(task);
+  const completed = isTaskCompleted(task.completedDates, task.day, new Date(), weekViewMode);
+  const efficient = isTaskEfficient(task, new Date(), weekViewMode);
+  const overtimeDone = isTaskOvertimeDone(task, new Date(), weekViewMode);
   const checked = completed || efficient || overtimeDone;
-  const cancelled = isTaskCancelled(task);
-  const done = isTaskDoneForDay(task);
-  const isToday = isTaskDayToday(task.day);
+  const cancelled = isTaskCancelled(task, new Date(), weekViewMode);
+  const done = isTaskDoneForDay(task, new Date(), weekViewMode);
+  const isToday = isTaskDayToday(task.day, new Date(), weekViewMode);
   const timeLabel = getTimeLabel(task);
   const hasDuration = task.timeMode === 'duration' && getTaskDurationMinutes(task) !== null;
+  const durationMinutes = getTaskDurationMinutes(task) ?? 0;
   const timerActive = isRunning || isPaused;
+  const canAdjustTimer =
+    hasDuration && isToday && !frozen && (timerActive || efficient);
 
   useEffect(() => {
     if (isRunning) {
@@ -122,6 +133,7 @@ export function TaskItem({
   }, [efficient]);
 
   function handleToggle() {
+    if (frozen) return;
     if (cancelled) {
       onCancel(task.id);
       return;
@@ -146,7 +158,7 @@ export function TaskItem({
   return (
     <div
       data-task-id={task.id}
-      className={`task-item ${stateClass} ${animating ? 'celebrate' : ''} ${isRunning ? 'running' : ''} ${isRunning && isOvertime ? 'overtime' : ''} ${isPaused ? 'paused' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+      className={`task-item ${stateClass} ${frozen ? 'frozen' : ''} ${animating ? 'celebrate' : ''} ${isRunning ? 'running' : ''} ${isRunning && isOvertime ? 'overtime' : ''} ${isPaused ? 'paused' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
       onDragOver={(e) => onDragOver(e, task.id)}
       onDrop={(e) => {
         e.preventDefault();
@@ -165,16 +177,28 @@ export function TaskItem({
       <button
         type="button"
         className="task-drag-handle"
-        draggable
+        draggable={!frozen}
         onDragStart={(e) => {
+          if (frozen) {
+            e.preventDefault();
+            return;
+          }
           e.dataTransfer.effectAllowed = 'move';
           e.dataTransfer.setData('text/plain', task.id);
-          // Defer state so the browser keeps the drag alive before .dragging styles apply
           requestAnimationFrame(() => onDragStart(task.id));
         }}
         onDragEnd={onDragEnd}
-        aria-label="Arrastar para outro dia ou reordenar"
-        title="Arrastar para outro dia ou reordenar"
+        aria-label={
+          frozen
+            ? 'Dia congelado — não é possível arrastar'
+            : 'Arrastar para outro dia ou reordenar'
+        }
+        title={
+          frozen
+            ? 'Dia congelado'
+            : 'Arrastar para outro dia ou reordenar'
+        }
+        disabled={frozen}
       >
         ⠿
       </button>
@@ -191,7 +215,7 @@ export function TaskItem({
               : 'Marcar tarefa como concluída'
         }
         aria-pressed={done && !cancelled}
-        disabled={false}
+        disabled={frozen}
       >
         {cancelled ? (
           <span className="cancel-icon" aria-hidden="true">
@@ -213,38 +237,57 @@ export function TaskItem({
       </button>
 
       <div
-        className="task-content"
-        onClick={() => onEdit(task)}
+        className={`task-content ${frozen ? 'task-content-readonly' : ''}`}
+        onClick={() => {
+          if (!frozen) onEdit(task);
+        }}
         onKeyDown={(e) => {
+          if (frozen) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onEdit(task);
           }
         }}
-        role="button"
-        tabIndex={0}
-        title="Editar tarefa"
+        role={frozen ? undefined : 'button'}
+        tabIndex={frozen ? undefined : 0}
+        title={frozen ? 'Dia congelado' : 'Editar tarefa'}
       >
         <p className="task-text">{task.text}</p>
         {(timeLabel || task.weekly || timerActive || cancelled || efficient || overtimeDone) && (
           <div className="task-meta">
             {timerActive ? (
-              <span
-                className={`task-time ${isRunning ? (isOvertime ? 'task-time-overtime' : 'task-time-running') : 'task-time-paused'}`}
+              <button
+                type="button"
+                className={`task-time task-time-button ${isRunning ? (isOvertime ? 'task-time-overtime' : 'task-time-running') : 'task-time-paused'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAdjustTimer(true);
+                }}
+                title="Ajustar tempo restante"
               >
                 {isRunning ? (isOvertime ? '⏰' : '⏳') : '⏸'}{' '}
                 {formatRemainingMs(remainingMs)}
                 {isOvertime ? '' : ' restantes'}
-              </span>
+              </button>
             ) : (
               timeLabel && <span className="task-time">{timeLabel}</span>
             )}
-            {task.weekly && <span className="task-badge">Toda semana</span>}
-            {cancelled && <span className="task-badge task-badge-cancelled">Não deu</span>}
             {efficient && (
               <>
                 <span className="task-badge task-badge-efficient">Eficiente ⚡</span>
                 <span className="task-praise">Mandou bem! Fez em menos tempo.</span>
+                {canAdjustTimer && (
+                  <button
+                    type="button"
+                    className="task-adjust-time"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAdjustTimer(true);
+                    }}
+                  >
+                    Ajustar tempo
+                  </button>
+                )}
               </>
             )}
             {overtimeDone && (
@@ -253,10 +296,13 @@ export function TaskItem({
                 <span className="task-praise">Concluiu depois do prazo — tudo bem!</span>
               </>
             )}
+            {cancelled && <span className="task-badge task-badge-cancelled">Não deu</span>}
+            {task.weekly && <span className="task-badge">Toda semana</span>}
           </div>
         )}
       </div>
 
+      {!frozen && (
       <div className="task-actions">
         {isToday && (!done || cancelled) && (
           <button
@@ -354,6 +400,27 @@ export function TaskItem({
           ×
         </button>
       </div>
+      )}
+
+      {showAdjustTimer && canAdjustTimer && (
+        <AdjustTimerModal
+          taskName={task.text}
+          durationMinutes={durationMinutes}
+          currentRemainingMs={
+            timerActive
+              ? remainingMs
+              : efficient
+                ? durationMinutes * 60 * 1000
+                : 0
+          }
+          wasFinishedEarly={efficient}
+          onSave={(remainingMs) => {
+            onAdjustTimer(remainingMs);
+            setShowAdjustTimer(false);
+          }}
+          onClose={() => setShowAdjustTimer(false)}
+        />
+      )}
     </div>
   );
 }

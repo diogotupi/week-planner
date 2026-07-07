@@ -1,76 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { LeroLeroState, Task } from '../types';
-import { pullLeroLero } from '../lib/taskSync';
-import { isSyncEnabled } from '../lib/api';
+import type { LeroLeroState, Task, WeekViewMode } from '../types';
 import {
   areAllTasksDoneToday,
-  computeLeroLeroMs,
   emptyLeroLero,
   getActiveScheduleBlock,
-  getDateKey,
+  getLeroLeroTotalMs,
   isTaskDoneForDay,
 } from '../utils';
 
 interface UseLeroLeroOptions {
   username: string;
   todayTasks: Task[];
-  /** Timer running or a task paused — lero lero must not count */
+  /** Timer actively running — lero lero must not count */
   isTaskBlocking: boolean;
+  weekViewMode: WeekViewMode;
   todayKey: string;
   leroLero: LeroLeroState;
   setLeroLero: React.Dispatch<React.SetStateAction<LeroLeroState>>;
-}
-
-function mergeLeroLero(
-  local: LeroLeroState,
-  remote: LeroLeroState,
-  scheduledTasks: Task[],
-  isTaskBlocking: boolean,
-  ref = new Date(),
-): LeroLeroState {
-  const localTotal = computeLeroLeroMs(
-    local.segmentStart,
-    local.accumulatedMs,
-    scheduledTasks,
-    ref,
-  );
-  const remoteTotal = computeLeroLeroMs(
-    remote.segmentStart,
-    remote.accumulatedMs,
-    scheduledTasks,
-    ref,
-  );
-  const totalMs = Math.max(localTotal, remoteTotal);
-  const hasStarted = local.hasStarted || remote.hasStarted;
-  const allDone = local.allDone || remote.allDone;
-
-  if (allDone) {
-    return {
-      dateKey: local.dateKey,
-      accumulatedMs: totalMs,
-      segmentStart: null,
-      hasStarted,
-      allDone: true,
-    };
-  }
-
-  if (isTaskBlocking) {
-    return {
-      dateKey: local.dateKey,
-      accumulatedMs: totalMs,
-      segmentStart: null,
-      hasStarted,
-      allDone: false,
-    };
-  }
-
-  return {
-    dateKey: local.dateKey,
-    accumulatedMs: totalMs,
-    segmentStart: ref.getTime(),
-    hasStarted,
-    allDone: false,
-  };
 }
 
 function beginLeroLeroSegment(prev: LeroLeroState, todayKey: string): LeroLeroState {
@@ -90,9 +36,9 @@ function beginLeroLeroSegment(prev: LeroLeroState, todayKey: string): LeroLeroSt
 }
 
 export function useLeroLero({
-  username,
   todayTasks,
   isTaskBlocking,
+  weekViewMode,
   todayKey,
   leroLero,
   setLeroLero,
@@ -107,9 +53,9 @@ export function useLeroLero({
           task.timeMode === 'schedule' &&
           task.startTime &&
           task.endTime &&
-          !isTaskDoneForDay(task),
+          !isTaskDoneForDay(task, new Date(), weekViewMode),
       ),
-    [todayTasks],
+    [todayTasks, weekViewMode],
   );
 
   const scheduleBlock = useMemo(
@@ -119,15 +65,7 @@ export function useLeroLero({
 
   const finalizeDay = useCallback(() => {
     setLeroLero((prev) => {
-      const accumulated =
-        prev.segmentStart === null
-          ? prev.accumulatedMs
-          : computeLeroLeroMs(
-              prev.segmentStart,
-              prev.accumulatedMs,
-              scheduledTasks,
-              new Date(),
-            );
+      const accumulated = getLeroLeroTotalMs(prev, scheduledTasks, new Date());
       return {
         ...prev,
         accumulatedMs: accumulated,
@@ -140,15 +78,7 @@ export function useLeroLero({
   const onTaskCompleted = useCallback(
     (isLastTask = false) => {
       setLeroLero((prev) => {
-        const accumulated =
-          prev.segmentStart === null
-            ? prev.accumulatedMs
-            : computeLeroLeroMs(
-                prev.segmentStart,
-                prev.accumulatedMs,
-                scheduledTasks,
-                new Date(),
-              );
+        const accumulated = getLeroLeroTotalMs(prev, scheduledTasks, new Date());
 
         if (isLastTask || areAllTasksDoneToday(todayTasks)) {
           return {
@@ -178,15 +108,7 @@ export function useLeroLero({
     setLeroLero((prev) => {
       if (prev.allDone) return prev;
 
-      const accumulated =
-        prev.segmentStart === null
-          ? prev.accumulatedMs
-          : computeLeroLeroMs(
-              prev.segmentStart,
-              prev.accumulatedMs,
-              scheduledTasks,
-              new Date(),
-            );
+      const accumulated = getLeroLeroTotalMs(prev, scheduledTasks, new Date());
 
       return {
         ...prev,
@@ -235,34 +157,15 @@ export function useLeroLero({
     }
   }, [todayTasks, hasStarted, allDone, finalizeDay]);
 
-  useEffect(() => {
-    if (!isSyncEnabled() || !hasStarted || allDone) return;
-
-    const syncFromCloud = () => {
-      pullLeroLero(username).then((remote) => {
-        if (!remote || remote.dateKey !== getDateKey()) return;
-        setLeroLero((prev) => mergeLeroLero(prev, remote, scheduledTasks, isTaskBlocking));
-      });
-    };
-
-    const onFocus = () => syncFromCloud();
-    window.addEventListener('focus', onFocus);
-    const id = setInterval(syncFromCloud, 10000);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      clearInterval(id);
-    };
-  }, [username, hasStarted, allDone, isTaskBlocking, scheduledTasks, setLeroLero]);
-
   const elapsedMs = useMemo(() => {
     if (!hasStarted) return 0;
     if (allDone || isTaskBlocking) return accumulatedMs;
-    return computeLeroLeroMs(segmentStart, accumulatedMs, scheduledTasks, now);
+    return getLeroLeroTotalMs(leroLero, scheduledTasks, now);
   }, [
     hasStarted,
     allDone,
     isTaskBlocking,
-    segmentStart,
+    leroLero,
     accumulatedMs,
     scheduledTasks,
     now,

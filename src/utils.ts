@@ -1,4 +1,4 @@
-import type { DayOfWeek, DayStats, LeroLeroState, Task, TaskTimerState } from './types';
+import type { DayOfWeek, DayStats, LeroLeroState, Task, TaskTimerState, WeekViewMode } from './types';
 
 export function getWeekKey(date = new Date()): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -15,11 +15,6 @@ export function isTaskVisible(
   currentWeek: string,
 ): boolean {
   return weekly || createdWeek === currentWeek;
-}
-
-export function getTodayDayOfWeek(): DayOfWeek {
-  const dow = new Date().getDay();
-  return (dow === 0 ? 6 : dow - 1) as DayOfWeek;
 }
 
 export function parseTimeToDate(time: string, ref = new Date()): Date {
@@ -104,6 +99,62 @@ export function computeLeroLeroMs(
 ): number {
   if (!segmentStart) return accumulatedMs;
   return accumulatedMs + computeSegmentMs(segmentStart, ref.getTime(), scheduledTasks, ref);
+}
+
+/** Ignora segmentStart órfão da nuvem (ex.: aba antiga com timestamp de horas atrás). */
+export function isCorruptLeroLeroState(state: LeroLeroState, ref = new Date()): boolean {
+  if (!state.segmentStart || state.allDone) return false;
+  const segmentAge = ref.getTime() - state.segmentStart;
+  if (segmentAge < 0) return true;
+  // Segmento aberto há muito tempo com pouco acumulado = dado stale de outro dispositivo/aba
+  if (segmentAge > 45 * 60 * 1000 && state.accumulatedMs < 5 * 60 * 1000) return true;
+  if (segmentAge > 2 * 60 * 60 * 1000 && state.accumulatedMs < segmentAge * 0.4) return true;
+  return false;
+}
+
+export function getLeroLeroTotalMs(
+  state: LeroLeroState,
+  scheduledTasks: Task[],
+  ref = new Date(),
+): number {
+  if (isCorruptLeroLeroState(state, ref)) return state.accumulatedMs;
+  return computeLeroLeroMs(state.segmentStart, state.accumulatedMs, scheduledTasks, ref);
+}
+
+/** Grava total já consolidado para evitar segmentStart stale na nuvem. */
+export function snapshotLeroLero(
+  state: LeroLeroState,
+  scheduledTasks: Task[],
+  ref = new Date(),
+): LeroLeroState {
+  if (!state.hasStarted) return state;
+  const total = getLeroLeroTotalMs(state, scheduledTasks, ref);
+  const counting = !state.allDone && state.segmentStart !== null;
+  return {
+    ...state,
+    accumulatedMs: total,
+    segmentStart: counting ? ref.getTime() : null,
+  };
+}
+
+export function mergeLeroLeroStates(
+  local: LeroLeroState,
+  remote: LeroLeroState,
+  scheduledTasks: Task[],
+  ref = new Date(),
+  stillCounting = false,
+): LeroLeroState {
+  const localTotal = getLeroLeroTotalMs(local, scheduledTasks, ref);
+  const remoteTotal = getLeroLeroTotalMs(remote, scheduledTasks, ref);
+  const totalMs = Math.max(localTotal, remoteTotal);
+
+  return {
+    dateKey: local.dateKey,
+    accumulatedMs: totalMs,
+    segmentStart: stillCounting && !local.allDone && !remote.allDone ? ref.getTime() : null,
+    hasStarted: local.hasStarted || remote.hasStarted,
+    allDone: local.allDone || remote.allDone,
+  };
 }
 
 export function getDateKey(date = new Date()): string {
@@ -299,7 +350,27 @@ export function applyMissedMidnightRollovers(
   return result;
 }
 
-export function getDateForDayOfWeek(day: DayOfWeek, ref = new Date()): string {
+export function getDateForDayOfWeek(
+  day: DayOfWeek,
+  ref = new Date(),
+  mode: WeekViewMode = 'calendar',
+): string {
+  if (mode === 'rolling') {
+    const todayDow = getTodayDayOfWeek(ref);
+    const base = new Date(ref);
+    base.setHours(0, 0, 0, 0);
+
+    if (day < todayDow) {
+      const target = new Date(base);
+      target.setDate(base.getDate() + (7 - (todayDow - day)));
+      return getDateKey(target);
+    }
+
+    const target = new Date(base);
+    target.setDate(base.getDate() + (day - todayDow));
+    return getDateKey(target);
+  }
+
   const monday = new Date(ref);
   const dow = monday.getDay();
   const mondayOffset = dow === 0 ? -6 : 1 - dow;
@@ -330,47 +401,71 @@ export function isDayToday(day: DayOfWeek, ref = new Date()): boolean {
   return getTodayDayOfWeek(ref) === day;
 }
 
+/** Coluna com data anterior a hoje — somente leitura */
+export function isDayFrozen(
+  day: DayOfWeek,
+  ref = new Date(),
+  mode: WeekViewMode = 'calendar',
+): boolean {
+  return getDateForDayOfWeek(day, ref, mode) < getDateKey(ref);
+}
+
 export function isTaskCompleted(
   completedDates: string[],
   taskDay: DayOfWeek,
   ref = new Date(),
+  mode: WeekViewMode = 'calendar',
 ): boolean {
-  const taskDate = getDateForDayOfWeek(taskDay, ref);
+  const taskDate = getDateForDayOfWeek(taskDay, ref, mode);
   return completedDates.includes(taskDate);
 }
 
-export function isTaskCancelled(task: Task, ref = new Date()): boolean {
-  const taskDate = getDateForDayOfWeek(task.day, ref);
-  const today = getDateKey(ref);
-  if (today !== taskDate) return false;
+export function isTaskCancelled(
+  task: Task,
+  ref = new Date(),
+  mode: WeekViewMode = 'calendar',
+): boolean {
+  const taskDate = getDateForDayOfWeek(task.day, ref, mode);
   return (task.cancelledDates ?? []).includes(taskDate);
 }
 
-export function isTaskEfficient(task: Task, ref = new Date()): boolean {
-  const taskDate = getDateForDayOfWeek(task.day, ref);
-  const today = getDateKey(ref);
-  if (today !== taskDate) return false;
+export function isTaskEfficient(
+  task: Task,
+  ref = new Date(),
+  mode: WeekViewMode = 'calendar',
+): boolean {
+  const taskDate = getDateForDayOfWeek(task.day, ref, mode);
   return (task.efficientDates ?? task.incompleteDates ?? []).includes(taskDate);
 }
 
-export function isTaskOvertimeDone(task: Task, ref = new Date()): boolean {
-  const taskDate = getDateForDayOfWeek(task.day, ref);
-  const today = getDateKey(ref);
-  if (today !== taskDate) return false;
+export function isTaskOvertimeDone(
+  task: Task,
+  ref = new Date(),
+  mode: WeekViewMode = 'calendar',
+): boolean {
+  const taskDate = getDateForDayOfWeek(task.day, ref, mode);
   return (task.overtimeDates ?? []).includes(taskDate);
 }
 
-export function isTaskDoneForDay(task: Task, ref = new Date()): boolean {
+export function isTaskDoneForDay(
+  task: Task,
+  ref = new Date(),
+  mode: WeekViewMode = 'calendar',
+): boolean {
   return (
-    isTaskCompleted(task.completedDates, task.day, ref) ||
-    isTaskCancelled(task, ref) ||
-    isTaskEfficient(task, ref) ||
-    isTaskOvertimeDone(task, ref)
+    isTaskCompleted(task.completedDates, task.day, ref, mode) ||
+    isTaskCancelled(task, ref, mode) ||
+    isTaskEfficient(task, ref, mode) ||
+    isTaskOvertimeDone(task, ref, mode)
   );
 }
 
-export function isTaskDayToday(taskDay: DayOfWeek, ref = new Date()): boolean {
-  return getDateKey(ref) === getDateForDayOfWeek(taskDay, ref);
+export function isTaskDayToday(
+  taskDay: DayOfWeek,
+  ref = new Date(),
+  mode: WeekViewMode = 'calendar',
+): boolean {
+  return getDateKey(ref) === getDateForDayOfWeek(taskDay, ref, mode);
 }
 
 export function formatDuration(value: string): string {
@@ -438,14 +533,39 @@ export function formatRemainingMs(ms: number): string {
   return overtime ? `+${body} extra` : body;
 }
 
+/** Formato HH:MM para input de ajuste de timer (horas:minutos). */
+export function formatMsToTimerInput(ms: number): string {
+  const totalMinutes = Math.max(0, Math.ceil(ms / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}:${String(minutes).padStart(2, '0')}`;
+}
+
+export function parseTimerInputToMs(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(':');
+  if (parts.length !== 2) return null;
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || minutes < 0 || minutes >= 60) {
+    return null;
+  }
+  return (hours * 60 + minutes) * 60 * 1000;
+}
+
 export function formatDateLabel(dateKey: string): string {
   const [y, m, d] = dateKey.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
 }
 
-export function getDateKeyForDay(day: DayOfWeek, ref = new Date()): string {
-  return getDateForDayOfWeek(day, ref);
+export function getDateKeyForDay(
+  day: DayOfWeek,
+  ref = new Date(),
+  mode: WeekViewMode = 'calendar',
+): string {
+  return getDateForDayOfWeek(day, ref, mode);
 }
 
 export function dateFromKey(dateKey: string): Date {
@@ -487,9 +607,8 @@ export function buildDayStats(
 
   const leroLeroMs =
     leroLero.dateKey === dateKey
-      ? computeLeroLeroMs(
-          leroLero.segmentStart,
-          leroLero.accumulatedMs,
+      ? getLeroLeroTotalMs(
+          leroLero,
           dayTasks.filter(
             (t) =>
               t.timeMode === 'schedule' && t.startTime && t.endTime && !isTaskDoneForDay(t),

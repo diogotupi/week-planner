@@ -1,15 +1,20 @@
-import type { DayOfWeek, LeroLeroState, Task, TaskTimerState } from '../types';
+import type { DayOfWeek, LeroLeroState, Task, TaskTimerState, UserPreferences } from '../types';
+import { DEFAULT_USER_PREFERENCES } from '../types';
 import {
   applyMissedMidnightRollovers,
   assignLegacyGroupIds,
   emptyLeroLero,
   emptyTaskTimer,
   getDateKey,
+  getTodayDayOfWeek,
   getWeekKey,
+  isTaskDoneForDay,
+  mergeLeroLeroStates,
   mergeTaskTimer,
   normalizeLeroLero,
   normalizeTaskTimer,
   pruneTaskTimerForTasks,
+  snapshotLeroLero,
 } from '../utils';
 import { apiFetch, isSyncEnabled } from './api';
 
@@ -19,6 +24,22 @@ export interface PlannerData {
   tasks: Task[];
   leroLero: LeroLeroState;
   taskTimer: TaskTimerState;
+  preferences: UserPreferences;
+}
+
+function preferencesStorageKey(username: string) {
+  return `week-planner-preferences-${username}`;
+}
+
+export function normalizeUserPreferences(raw: unknown): UserPreferences {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_USER_PREFERENCES };
+  const state = raw as Partial<UserPreferences>;
+  return {
+    weekViewMode:
+      state.weekViewMode === 'rolling' || state.weekViewMode === 'calendar'
+        ? state.weekViewMode
+        : DEFAULT_USER_PREFERENCES.weekViewMode,
+  };
 }
 
 function storageKey(username: string) {
@@ -85,6 +106,7 @@ function loadLocalPlannerData(username: string): PlannerData {
   let tasks: Task[] = [];
   let leroLero = emptyLeroLero(todayKey);
   let taskTimer = emptyTaskTimer(todayKey);
+  let preferences = { ...DEFAULT_USER_PREFERENCES };
 
   try {
     const rawTasks = localStorage.getItem(storageKey(username));
@@ -94,11 +116,19 @@ function loadLocalPlannerData(username: string): PlannerData {
   }
 
   try {
+    const rawPrefs = localStorage.getItem(preferencesStorageKey(username));
+    if (rawPrefs) preferences = normalizeUserPreferences(JSON.parse(rawPrefs));
+  } catch {
+    preferences = { ...DEFAULT_USER_PREFERENCES };
+  }
+
+  try {
     const rawLero = localStorage.getItem(leroLeroStorageKey(username));
     if (rawLero) {
       const parsed = JSON.parse(rawLero) as {
         leroLero?: unknown;
         taskTimer?: unknown;
+        preferences?: unknown;
         lastDateKey?: string;
       };
       if (parsed.leroLero) {
@@ -106,6 +136,9 @@ function loadLocalPlannerData(username: string): PlannerData {
       }
       if (parsed.taskTimer) {
         taskTimer = normalizeTaskTimer(parsed.taskTimer, todayKey);
+      }
+      if (parsed.preferences) {
+        preferences = normalizeUserPreferences(parsed.preferences);
       }
       if (parsed.lastDateKey && parsed.lastDateKey !== todayKey) {
         tasks = applyMissedMidnightRollovers(tasks, parsed.lastDateKey, todayKey);
@@ -128,17 +161,35 @@ function loadLocalPlannerData(username: string): PlannerData {
   }
 
   taskTimer = pruneTaskTimerForTasks(taskTimer, tasks);
-  return { tasks, leroLero, taskTimer };
+  return { tasks, leroLero, taskTimer, preferences };
+}
+
+function getTodayScheduledTasks(tasks: Task[]): Task[] {
+  const today = getTodayDayOfWeek();
+  return tasks.filter(
+    (task) =>
+      task.day === today &&
+      task.timeMode === 'schedule' &&
+      task.startTime &&
+      task.endTime &&
+      !isTaskDoneForDay(task),
+  );
 }
 
 function cacheLocal(username: string, data: PlannerData) {
-  localStorage.setItem(storageKey(username), JSON.stringify(data.tasks));
+  const scheduledTasks = getTodayScheduledTasks(data.tasks);
+  const leroLero = snapshotLeroLero(data.leroLero, scheduledTasks);
+  const payload = { ...data, leroLero };
+
+  localStorage.setItem(storageKey(username), JSON.stringify(payload.tasks));
+  localStorage.setItem(preferencesStorageKey(username), JSON.stringify(payload.preferences));
   localStorage.setItem(
     leroLeroStorageKey(username),
     JSON.stringify({
-      leroLero: data.leroLero,
-      taskTimer: data.taskTimer,
-      lastDateKey: data.leroLero.dateKey,
+      leroLero: payload.leroLero,
+      taskTimer: payload.taskTimer,
+      preferences: payload.preferences,
+      lastDateKey: payload.leroLero.dateKey,
     }),
   );
 }
@@ -147,6 +198,7 @@ function reconcilePlannerData(
   remoteTasks: Task[],
   remoteLeroLero: unknown,
   remoteTaskTimer: unknown,
+  remotePreferences: unknown,
   local: PlannerData,
 ): PlannerData {
   const todayKey = getDateKey();
@@ -166,14 +218,8 @@ function reconcilePlannerData(
   if (lastActiveDateKey && lastActiveDateKey !== todayKey) {
     leroLero = emptyLeroLero(todayKey);
   } else if (local.leroLero.dateKey === todayKey && local.leroLero.hasStarted) {
-    const accumulatedMs = Math.max(local.leroLero.accumulatedMs, leroLero.accumulatedMs);
-    leroLero = {
-      ...leroLero,
-      accumulatedMs,
-      hasStarted: local.leroLero.hasStarted || leroLero.hasStarted,
-      segmentStart: local.leroLero.segmentStart ?? leroLero.segmentStart,
-      allDone: local.leroLero.allDone || leroLero.allDone,
-    };
+    const scheduledTasks = getTodayScheduledTasks(tasks);
+    leroLero = mergeLeroLeroStates(local.leroLero, leroLero, scheduledTasks);
   }
 
   let taskTimer = normalizeTaskTimer(remoteTaskTimer, todayKey);
@@ -185,7 +231,9 @@ function reconcilePlannerData(
 
   taskTimer = pruneTaskTimerForTasks(taskTimer, tasks);
 
-  return { tasks, leroLero, taskTimer };
+  const preferences = normalizeUserPreferences(remotePreferences ?? local.preferences);
+
+  return { tasks, leroLero, taskTimer, preferences };
 }
 
 export async function fetchPlannerData(username: string): Promise<PlannerData> {
@@ -206,6 +254,7 @@ export async function fetchPlannerData(username: string): Promise<PlannerData> {
       tasks: unknown;
       leroLero: unknown;
       taskTimer: unknown;
+      preferences: unknown;
     };
 
     const remoteTasks = normalizeTasks(data.tasks);
@@ -213,6 +262,7 @@ export async function fetchPlannerData(username: string): Promise<PlannerData> {
       remoteTasks,
       data.leroLero,
       data.taskTimer,
+      data.preferences,
       local,
     );
 
@@ -230,16 +280,23 @@ export async function fetchPlannerData(username: string): Promise<PlannerData> {
 }
 
 export async function savePlannerData(username: string, data: PlannerData): Promise<void> {
-  cacheLocal(username, data);
+  const scheduledTasks = getTodayScheduledTasks(data.tasks);
+  const payload: PlannerData = {
+    ...data,
+    leroLero: snapshotLeroLero(data.leroLero, scheduledTasks),
+  };
+
+  cacheLocal(username, payload);
 
   if (!isSyncEnabled()) return;
 
   const response = await apiFetch('/api/tasks', {
     method: 'PUT',
     body: JSON.stringify({
-      tasks: data.tasks,
-      leroLero: data.leroLero,
-      taskTimer: data.taskTimer,
+      tasks: payload.tasks,
+      leroLero: payload.leroLero,
+      taskTimer: payload.taskTimer,
+      preferences: payload.preferences,
     }),
   });
 
@@ -256,7 +313,12 @@ export async function fetchTasks(username: string): Promise<Task[]> {
 
 export async function saveTasks(username: string, tasks: Task[]): Promise<void> {
   const local = loadLocalPlannerData(username);
-  await savePlannerData(username, { tasks, leroLero: local.leroLero, taskTimer: local.taskTimer });
+  await savePlannerData(username, {
+    tasks,
+    leroLero: local.leroLero,
+    taskTimer: local.taskTimer,
+    preferences: local.preferences,
+  });
 }
 
 export async function pullLeroLero(_username: string): Promise<LeroLeroState | null> {

@@ -143,6 +143,32 @@ export function useTaskTimer({
     [setState],
   );
 
+  const adjustTimerRemaining = useCallback(
+    (taskId: string, remainingMs: number) => {
+      setState((current) => {
+        const inOvertime = remainingMs <= 0;
+
+        if (current.active?.taskId === taskId) {
+          setRemainingMs(remainingMs);
+          return {
+            ...current,
+            active: {
+              taskId,
+              endsAt: Date.now() + remainingMs,
+              inOvertime,
+            },
+          };
+        }
+
+        return {
+          ...current,
+          paused: { ...current.paused, [taskId]: remainingMs },
+        };
+      });
+    },
+    [setState],
+  );
+
   const getPausedRemaining = useCallback(
     (taskId: string) => (taskId in paused ? paused[taskId] : null),
     [paused],
@@ -169,6 +195,7 @@ export function useTaskTimer({
     resumeTimer,
     pauseTimer,
     clearTimer,
+    adjustTimerRemaining,
     getPausedRemaining,
     isTaskPaused,
     isTaskOvertime,

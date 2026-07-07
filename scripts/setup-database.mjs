@@ -13,6 +13,7 @@ create table if not exists user_tasks (
 
 alter table user_tasks add column if not exists lero_lero jsonb;
 alter table user_tasks add column if not exists task_timer jsonb;
+alter table user_tasks add column if not exists preferences jsonb;
 
 create table if not exists user_day_stats (
   username text not null,

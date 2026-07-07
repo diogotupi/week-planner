@@ -31,6 +31,17 @@ export const DAYS = [
   'Domingo',
 ] as const;
 
+/** calendar = semana atual com histórico; rolling = dias passados mostram a próxima data */
+export type WeekViewMode = 'calendar' | 'rolling';
+
+export interface UserPreferences {
+  weekViewMode: WeekViewMode;
+}
+
+export const DEFAULT_USER_PREFERENCES: UserPreferences = {
+  weekViewMode: 'calendar',
+};
+
 export interface LeroLeroState {
   dateKey: string;
   accumulatedMs: number;

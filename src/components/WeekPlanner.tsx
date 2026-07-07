@@ -4,9 +4,11 @@ import type { DayOfWeek } from '../types';
 import { useTasks } from '../hooks/useTasks';
 import { useTaskTimer } from '../hooks/useTaskTimer';
 import { useLeroLero } from '../hooks/useLeroLero';
+import { PlannerSettingsProvider } from '../context/PlannerSettingsContext';
 import { DayColumn, type DragTarget } from './DayColumn';
 import { LeroLeroBar } from './LeroLeroBar';
 import { OvertimePrompt } from './OvertimePrompt';
+import { SettingsModal } from './SettingsModal';
 import {
   playTaskFinishedSound,
   playTaskNotificationSound,
@@ -15,8 +17,10 @@ import {
 import {
   getTodayDayOfWeek,
   getTaskDurationMinutes,
+  isDayFrozen,
   isTaskCancelled,
   isTaskDoneForDay,
+  isTaskEfficient,
 } from '../utils';
 const ALL_DAYS: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6];
 
@@ -40,6 +44,7 @@ export function WeekPlanner({
     cancelTask,
     completeTaskEfficient,
     completeTaskOvertime,
+    resetTaskCompletionForToday,
     removeTask,
     moveTask,
     getTasksForDay,
@@ -52,9 +57,13 @@ export function WeekPlanner({
     loading,
     syncing,
     syncError,
+    preferences,
+    setPreferences,
+    weekViewMode,
   } = useTasks(username);
 
   const [overtimePromptTaskId, setOvertimePromptTaskId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragTarget, setDragTarget] = useState<DragTarget | null>(null);
   const todayDay = getTodayDayOfWeek();
@@ -63,7 +72,7 @@ export function WeekPlanner({
 
   function willFinishLastTask(taskId: string): boolean {
     return todayTasks.every(
-      (task) => task.id === taskId || isTaskDoneForDay(task),
+      (task) => task.id === taskId || isTaskDoneForDay(task, new Date(), weekViewMode),
     );
   }
 
@@ -80,6 +89,7 @@ export function WeekPlanner({
     resumeTimer,
     pauseTimer,
     clearTimer,
+    adjustTimerRemaining,
     getPausedRemaining,
     isTaskPaused,
     isTaskOvertime,
@@ -89,13 +99,13 @@ export function WeekPlanner({
     onOvertime: handleOvertime,
   });
 
-  const isTaskBlocking =
-    activeTaskId !== null || todayTasks.some((task) => isTaskPaused(task.id));
+  const isTaskBlocking = activeTaskId !== null;
 
   const leroLeroControls = useLeroLero({
     username,
     todayTasks,
     isTaskBlocking,
+    weekViewMode,
     todayKey,
     leroLero,
     setLeroLero,
@@ -124,7 +134,18 @@ export function WeekPlanner({
     onLeroLeroTaskCompletedRef.current(willFinishLastTask(taskId));
   }
 
+  function isTaskOnFrozenDay(taskId: string): boolean {
+    const task = tasks.find((item) => item.id === taskId);
+    return task ? isDayFrozen(task.day, new Date(), weekViewMode) : false;
+  }
+
+  function handleMoveTask(taskId: string, toDay: DayOfWeek, beforeId: string | null) {
+    if (isTaskOnFrozenDay(taskId) || isDayFrozen(toDay, new Date(), weekViewMode)) return;
+    moveTask(taskId, toDay, beforeId);
+  }
+
   function handleStartTask(taskId: string) {
+    if (isTaskOnFrozenDay(taskId)) return;
     unlockTaskSounds();
     const pausedMs = getPausedRemaining(taskId);
     leroLeroControls.onTaskRunning();
@@ -143,9 +164,11 @@ export function WeekPlanner({
   function handlePauseTask() {
     unlockTaskSounds();
     pauseTimer();
+    leroLeroControls.onTaskNotRunning();
   }
 
   function handleFinishEarly(taskId: string) {
+    if (isTaskOnFrozenDay(taskId)) return;
     if (isTaskOvertime(taskId)) {
       finishTaskAfterOvertime(taskId);
       return;
@@ -155,6 +178,25 @@ export function WeekPlanner({
     clearTimer(taskId);
     completeTaskEfficient(taskId);
     onLeroLeroTaskCompletedRef.current(willFinishLastTask(taskId));
+  }
+
+  function handleAdjustTimer(taskId: string, remainingMs: number) {
+    if (isTaskOnFrozenDay(taskId)) return;
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task || getTaskDurationMinutes(task) === null) return;
+
+    const wasEfficient = isTaskEfficient(task, new Date(), weekViewMode);
+    if (wasEfficient || isTaskDoneForDay(task, new Date(), weekViewMode)) {
+      resetTaskCompletionForToday(taskId);
+    }
+
+    adjustTimerRemaining(taskId, remainingMs);
+
+    if (activeTaskId === taskId) {
+      leroLeroControls.onTaskRunning();
+    } else if (activeTaskId === null) {
+      leroLeroControls.onTaskNotRunning();
+    }
   }
 
   const daysGridRef = useRef<HTMLDivElement>(null);
@@ -174,8 +216,9 @@ export function WeekPlanner({
   }, [loading]);
 
   function handleToggle(id: string) {
+    if (isTaskOnFrozenDay(id)) return;
     const task = tasks.find((item) => item.id === id);
-    const wasDone = task ? isTaskDoneForDay(task) : false;
+    const wasDone = task ? isTaskDoneForDay(task, new Date(), weekViewMode) : false;
 
     if (task && !wasDone && isTaskOvertime(id)) {
       finishTaskAfterOvertime(id);
@@ -207,10 +250,11 @@ export function WeekPlanner({
   }
 
   function handleCancel(id: string) {
+    if (isTaskOnFrozenDay(id)) return;
     if (activeTaskId === id || isTaskPaused(id)) clearTimer(id);
     const task = tasks.find((item) => item.id === id);
-    const wasCancelled = task ? isTaskCancelled(task) : false;
-    const wasDone = task ? isTaskDoneForDay(task) : false;
+    const wasCancelled = task ? isTaskCancelled(task, new Date(), weekViewMode) : false;
+    const wasDone = task ? isTaskDoneForDay(task, new Date(), weekViewMode) : false;
     cancelTask(id);
     if (task && wasCancelled && activeTaskId === null) {
       leroLeroControls.onTaskNotRunning();
@@ -220,6 +264,7 @@ export function WeekPlanner({
   }
 
   function handleRemove(id: string) {
+    if (isTaskOnFrozenDay(id)) return;
     if (activeTaskId === id || isTaskPaused(id)) clearTimer(id);
     removeTask(id);
   }
@@ -237,6 +282,7 @@ export function WeekPlanner({
   }
 
   return (
+    <PlannerSettingsProvider weekViewMode={weekViewMode}>
     <div className="planner">
       <header className="planner-header">
         <div className="planner-top">
@@ -254,6 +300,9 @@ export function WeekPlanner({
             )}
           </div>
           <div className="planner-header-actions">
+            <button type="button" className="btn-secondary" onClick={() => setShowSettings(true)}>
+              Configurações
+            </button>
             <button type="button" className="btn-secondary" onClick={onOpenAnalytics}>
               Análise
             </button>
@@ -293,7 +342,7 @@ export function WeekPlanner({
               onToggle={handleToggle}
               onCancel={handleCancel}
               onRemove={handleRemove}
-              onMoveTask={moveTask}
+              onMoveTask={handleMoveTask}
               onDragStart={setDraggingTaskId}
               onDragEnd={() => {
                 setDraggingTaskId(null);
@@ -303,6 +352,7 @@ export function WeekPlanner({
               onStartTask={handleStartTask}
               onPauseTask={handlePauseTask}
               onFinishEarly={handleFinishEarly}
+              onAdjustTimer={handleAdjustTimer}
             />
           ))}
         </div>
@@ -319,6 +369,15 @@ export function WeekPlanner({
       {username === 'camila' && (
         <footer className="planner-footer">te amo, meu suflezinho de amora ❤️</footer>
       )}
+
+      {showSettings && (
+        <SettingsModal
+          preferences={preferences}
+          onChange={setPreferences}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
+    </PlannerSettingsProvider>
   );
 }

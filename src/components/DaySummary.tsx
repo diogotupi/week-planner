@@ -1,4 +1,5 @@
 import type { Task } from '../types';
+import { useWeekViewMode } from '../context/PlannerSettingsContext';
 import {
   formatFinishTime,
   formatTotalMinutes,
@@ -13,7 +14,8 @@ interface DaySummaryProps {
 }
 
 export function DaySummary({ tasks }: DaySummaryProps) {
-  const pendingTasks = tasks.filter((task) => !isTaskDoneForDay(task));
+  const weekViewMode = useWeekViewMode();
+  const pendingTasks = tasks.filter((task) => !isTaskDoneForDay(task, new Date(), weekViewMode));
 
   const totalMinutes = pendingTasks.reduce((sum, task) => {
     const minutes = getTaskDurationMinutes(task);
