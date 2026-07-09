@@ -316,8 +316,13 @@ export function WeekPlanner({
             elapsedMs={leroLeroControls.elapsedMs}
             isCounting={leroLeroControls.isCounting}
             isPausedBySchedule={leroLeroControls.isPausedBySchedule}
+            isManuallyPaused={leroLeroControls.isManuallyPaused}
             isFinished={leroLeroControls.isFinished}
+            canTogglePause={leroLeroControls.canTogglePause}
             pauseReason={leroLeroControls.pauseReason}
+            onPause={leroLeroControls.pause}
+            onResume={leroLeroControls.resume}
+            onReset={leroLeroControls.reset}
           />
         )}
       </header>

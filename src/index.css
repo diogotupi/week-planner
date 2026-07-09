@@ -1157,6 +1157,38 @@ body {
   color: var(--text-muted);
 }
 
+.lero-lero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.15rem;
+}
+
+.lero-lero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lero-lero-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.lero-lero-btn-reset {
+  font-size: 0.9rem;
+}
+
 .task-item.overtime {
   border-color: #c8553d;
   background: rgba(200, 85, 61, 0.07);

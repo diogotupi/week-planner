@@ -129,11 +129,12 @@ export function snapshotLeroLero(
 ): LeroLeroState {
   if (!state.hasStarted) return state;
   const total = getLeroLeroTotalMs(state, scheduledTasks, ref);
-  const counting = !state.allDone && state.segmentStart !== null;
+  const counting = !state.allDone && !state.manuallyPaused && state.segmentStart !== null;
   return {
     ...state,
     accumulatedMs: total,
     segmentStart: counting ? ref.getTime() : null,
+    manuallyPaused: Boolean(state.manuallyPaused),
   };
 }
 
@@ -147,13 +148,18 @@ export function mergeLeroLeroStates(
   const localTotal = getLeroLeroTotalMs(local, scheduledTasks, ref);
   const remoteTotal = getLeroLeroTotalMs(remote, scheduledTasks, ref);
   const totalMs = Math.max(localTotal, remoteTotal);
+  const manuallyPaused = Boolean(local.manuallyPaused || remote.manuallyPaused);
 
   return {
     dateKey: local.dateKey,
     accumulatedMs: totalMs,
-    segmentStart: stillCounting && !local.allDone && !remote.allDone ? ref.getTime() : null,
+    segmentStart:
+      stillCounting && !manuallyPaused && !local.allDone && !remote.allDone
+        ? ref.getTime()
+        : null,
     hasStarted: local.hasStarted || remote.hasStarted,
     allDone: local.allDone || remote.allDone,
+    manuallyPaused,
   };
 }
 
@@ -185,6 +191,7 @@ export function emptyLeroLero(dateKey = getDateKey()): LeroLeroState {
     segmentStart: null,
     hasStarted: false,
     allDone: false,
+    manuallyPaused: false,
   };
 }
 
@@ -198,6 +205,7 @@ export function normalizeLeroLero(raw: unknown, todayKey = getDateKey()): LeroLe
     segmentStart: typeof state.segmentStart === 'number' ? state.segmentStart : null,
     hasStarted: Boolean(state.hasStarted),
     allDone: Boolean(state.allDone),
+    manuallyPaused: Boolean(state.manuallyPaused),
   };
 }
 

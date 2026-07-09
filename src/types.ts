@@ -48,6 +48,8 @@ export interface LeroLeroState {
   segmentStart: number | null;
   hasStarted: boolean;
   allDone: boolean;
+  /** Usuário pausou o lero lero manualmente — não retoma sozinho. */
+  manuallyPaused?: boolean;
 }
 
 export interface TaskTimerState {
