@@ -13,6 +13,7 @@ export interface User {
 export const USERS: User[] = [
   { username: 'camila', password: '123456', displayName: 'Camila' },
   { username: 'diogo', password: '123456', displayName: 'Diogo' },
+  { username: 'matheuzin', password: '123456', displayName: 'Matheuzin' },
 ];
 
 const SESSION_KEY = 'week-planner-session';

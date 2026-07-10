@@ -4,6 +4,7 @@ import crypto from 'crypto';
 const USERS = [
   { username: 'camila', password: '123456' },
   { username: 'diogo', password: '123456' },
+  { username: 'matheuzin', password: '123456' },
 ];
 
 function getSecret(): string {
