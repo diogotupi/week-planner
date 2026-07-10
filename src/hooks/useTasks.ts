@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchPlannerData, savePlannerData } from '../lib/taskSync';
 import { saveDayStats } from '../lib/dayStatsSync';
-import type { DayOfWeek, LeroLeroState, Task, TaskTimerState, UserPreferences } from '../types';
+import type {
+  DayOfWeek,
+  LeroLeroState,
+  Strike,
+  Task,
+  TaskTimerState,
+  UserPreferences,
+} from '../types';
 import { DEFAULT_USER_PREFERENCES } from '../types';
 import {
   applyMidnightRolloverForDate,
@@ -34,6 +41,7 @@ export function useTasks(username: string) {
   const [preferences, setPreferences] = useState<UserPreferences>(() => ({
     ...DEFAULT_USER_PREFERENCES,
   }));
+  const [strikes, setStrikes] = useState<Strike[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -64,6 +72,7 @@ export function useTasks(username: string) {
       setLeroLero(data.leroLero);
       setTaskTimer(pruneTaskTimerForTasks(data.taskTimer, data.tasks));
       setPreferences(data.preferences);
+      setStrikes(data.strikes);
       setTodayKey(getDateKey());
       setLoading(false);
       skipSaveRef.current = false;
@@ -81,7 +90,7 @@ export function useTasks(username: string) {
       setSyncing(true);
       setSyncError(null);
 
-      savePlannerData(username, { tasks, leroLero, taskTimer, preferences })
+      savePlannerData(username, { tasks, leroLero, taskTimer, preferences, strikes })
         .catch(() => {
           setSyncError('Não foi possível sincronizar. Dados salvos localmente.');
         })
@@ -91,7 +100,7 @@ export function useTasks(username: string) {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [tasks, leroLero, taskTimer, preferences, username, loading]);
+  }, [tasks, leroLero, taskTimer, preferences, strikes, username, loading]);
 
   useEffect(() => {
     let timerId = 0;
@@ -291,6 +300,91 @@ export function useTasks(username: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  /** Remove a tarefa e todas as réplicas dela em outros dias. */
+  const removeTaskGroup = useCallback((id: string) => {
+    setTasks((prev) => {
+      const task = prev.find((t) => t.id === id);
+      if (!task) return prev;
+      if (!task.groupId) return prev.filter((t) => t.id !== id);
+      return prev.filter((t) => t.groupId !== task.groupId);
+    });
+  }, []);
+
+  /** Redefine em quais dias da semana a tarefa (e suas réplicas) aparece. */
+  const setRecurringDays = useCallback((id: string, days: DayOfWeek[]) => {
+    if (days.length === 0) return;
+    setTasks((prev) => {
+      const task = prev.find((t) => t.id === id);
+      if (!task) return prev;
+
+      const members = task.groupId
+        ? prev.filter((t) => t.groupId === task.groupId)
+        : [task];
+      const memberDays = new Set(members.map((m) => m.day));
+      const targetDays = new Set(days);
+
+      const removeIds = new Set(
+        members.filter((m) => !targetDays.has(m.day)).map((m) => m.id),
+      );
+      const daysToAdd = days.filter((d) => !memberDays.has(d));
+
+      if (removeIds.size === 0 && daysToAdd.length === 0) return prev;
+
+      const groupId = task.groupId ?? generateId();
+      const memberIds = new Set(members.map((m) => m.id));
+
+      const next = prev
+        .filter((t) => !removeIds.has(t.id))
+        .map((t) => (memberIds.has(t.id) && !t.groupId ? { ...t, groupId } : t));
+
+      const base = {
+        text: task.text,
+        weekly: task.weekly,
+        timeMode: task.timeMode,
+        duration: task.duration,
+        startTime: task.startTime,
+        endTime: task.endTime,
+        createdWeek: currentWeek,
+        completedDates: [] as string[],
+        cancelledDates: [] as string[],
+        incompleteDates: [] as string[],
+        efficientDates: [] as string[],
+        overtimeDates: [] as string[],
+        groupId,
+      };
+
+      const newTasks = daysToAdd.map((day) => {
+        const dayTasks = next.filter((t) => t.day === day);
+        const maxOrder = dayTasks.reduce(
+          (max, t) => Math.max(max, t.sortOrder ?? 0),
+          -1,
+        );
+        return { ...base, id: generateId(), day, sortOrder: maxOrder + 1 };
+      });
+
+      return [...next, ...newTasks];
+    });
+  }, [currentWeek]);
+
+  /** Liga/desliga "toda semana" para a tarefa e suas réplicas. */
+  const setRecurringWeekly = useCallback((id: string, weekly: boolean) => {
+    setTasks((prev) => {
+      const task = prev.find((t) => t.id === id);
+      if (!task) return prev;
+      const memberIds = new Set(
+        (task.groupId ? prev.filter((t) => t.groupId === task.groupId) : [task]).map(
+          (t) => t.id,
+        ),
+      );
+      return prev.map((t) =>
+        memberIds.has(t.id)
+          ? // Ao desligar weekly, garante que a tarefa continue visível nesta semana
+            { ...t, weekly, createdWeek: weekly ? t.createdWeek : currentWeek }
+          : t,
+      );
+    });
+  }, [currentWeek]);
+
   const updateTask = useCallback((id: string, input: NewTaskInput, scope: UpdateScope = 'single') => {
     const day = input.days[0];
     if (day === undefined) return;
@@ -398,12 +492,81 @@ export function useTasks(username: string) {
     setTaskTimer((prev) => pruneTaskTimerForTasks(prev, tasks));
   }, [tasks]);
 
+  const addStrike = useCallback((title: string, targetDays: number) => {
+    const trimmed = title.trim();
+    const days = Math.max(1, Math.floor(targetDays));
+    if (!trimmed || days < 1) return;
+
+    const strike: Strike = {
+      id: generateId(),
+      title: trimmed,
+      targetDays: days,
+      completedDays: 0,
+      status: 'active',
+      lastCheckInDate: null,
+      lastCheckInResult: null,
+      createdDateKey: getDateKey(),
+    };
+    setStrikes((prev) => [...prev, strike]);
+  }, []);
+
+  const markStrikeSuccess = useCallback((id: string) => {
+    const today = getDateKey();
+    setStrikes((prev) =>
+      prev.map((strike) => {
+        if (strike.id !== id || strike.status !== 'active') return strike;
+        if (strike.lastCheckInDate === today && strike.lastCheckInResult === 'success') {
+          return strike;
+        }
+
+        const nextDays = strike.completedDays + 1;
+        if (nextDays >= strike.targetDays) {
+          return {
+            ...strike,
+            completedDays: nextDays,
+            status: 'completed',
+            lastCheckInDate: today,
+            lastCheckInResult: 'success',
+            completedDateKey: today,
+          };
+        }
+
+        return {
+          ...strike,
+          completedDays: nextDays,
+          lastCheckInDate: today,
+          lastCheckInResult: 'success',
+        };
+      }),
+    );
+  }, []);
+
+  const markStrikeFail = useCallback((id: string, reset: boolean) => {
+    const today = getDateKey();
+    setStrikes((prev) =>
+      prev.map((strike) => {
+        if (strike.id !== id || strike.status !== 'active') return strike;
+        return {
+          ...strike,
+          completedDays: reset ? 0 : strike.completedDays,
+          lastCheckInDate: today,
+          lastCheckInResult: 'fail',
+        };
+      }),
+    );
+  }, []);
+
+  const removeStrike = useCallback((id: string) => {
+    setStrikes((prev) => prev.filter((strike) => strike.id !== id));
+  }, []);
+
   return {
     tasks,
     leroLero,
     setLeroLero,
     taskTimer,
     setTaskTimer,
+    strikes,
     loading,
     syncing,
     syncError,
@@ -416,9 +579,16 @@ export function useTasks(username: string) {
     completeTaskOvertime,
     resetTaskCompletionForToday,
     removeTask,
+    removeTaskGroup,
+    setRecurringDays,
+    setRecurringWeekly,
     reorderTasks,
     moveTask,
     getTasksForDay,
+    addStrike,
+    markStrikeSuccess,
+    markStrikeFail,
+    removeStrike,
     preferences,
     setPreferences,
     weekViewMode,

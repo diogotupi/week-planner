@@ -17,6 +17,7 @@ interface UseLeroLeroOptions {
   todayKey: string;
   leroLero: LeroLeroState;
   setLeroLero: React.Dispatch<React.SetStateAction<LeroLeroState>>;
+  enabled?: boolean;
 }
 
 function beginLeroLeroSegment(prev: LeroLeroState, todayKey: string): LeroLeroState {
@@ -43,6 +44,7 @@ export function useLeroLero({
   todayKey,
   leroLero,
   setLeroLero,
+  enabled = true,
 }: UseLeroLeroOptions) {
   const { accumulatedMs, segmentStart, hasStarted, allDone, manuallyPaused } = leroLero;
   const [now, setNow] = useState(() => new Date());
@@ -79,6 +81,7 @@ export function useLeroLero({
 
   const onTaskCompleted = useCallback(
     (isLastTask = false) => {
+      if (!enabled) return;
       setLeroLero((prev) => {
         const accumulated = getLeroLeroTotalMs(prev, scheduledTasks, new Date());
 
@@ -117,10 +120,11 @@ export function useLeroLero({
         };
       });
     },
-    [todayTasks, scheduledTasks, todayKey, setLeroLero],
+    [enabled, todayTasks, scheduledTasks, todayKey, setLeroLero],
   );
 
   const onTaskRunning = useCallback(() => {
+    if (!enabled) return;
     setLeroLero((prev) => {
       if (prev.allDone) return prev;
 
@@ -134,13 +138,15 @@ export function useLeroLero({
         segmentStart: null,
       };
     });
-  }, [scheduledTasks, todayKey, setLeroLero]);
+  }, [enabled, scheduledTasks, todayKey, setLeroLero]);
 
   const onTaskNotRunning = useCallback(() => {
+    if (!enabled) return;
     setLeroLero((prev) => beginLeroLeroSegment(prev, todayKey));
-  }, [todayKey, setLeroLero]);
+  }, [enabled, todayKey, setLeroLero]);
 
   const pause = useCallback(() => {
+    if (!enabled) return;
     setLeroLero((prev) => {
       if (prev.allDone || !prev.hasStarted) return prev;
       const accumulated = getLeroLeroTotalMs(prev, scheduledTasks, new Date());
@@ -152,9 +158,10 @@ export function useLeroLero({
         manuallyPaused: true,
       };
     });
-  }, [scheduledTasks, todayKey, setLeroLero]);
+  }, [enabled, scheduledTasks, todayKey, setLeroLero]);
 
   const resume = useCallback(() => {
+    if (!enabled) return;
     setLeroLero((prev) => {
       if (prev.allDone || !prev.hasStarted) return prev;
       if (isTaskBlocking) {
@@ -172,9 +179,10 @@ export function useLeroLero({
         segmentStart: Date.now(),
       };
     });
-  }, [isTaskBlocking, todayTasks, todayKey, setLeroLero]);
+  }, [enabled, isTaskBlocking, todayTasks, todayKey, setLeroLero]);
 
   const reset = useCallback(() => {
+    if (!enabled) return;
     setLeroLero({
       dateKey: todayKey,
       accumulatedMs: 0,
@@ -183,7 +191,7 @@ export function useLeroLero({
       allDone: false,
       manuallyPaused: true,
     });
-  }, [todayKey, setLeroLero]);
+  }, [enabled, todayKey, setLeroLero]);
 
   useEffect(() => {
     if (leroLero.dateKey === todayKey) return;
@@ -192,12 +200,20 @@ export function useLeroLero({
 
   // Safety net: between tasks we must have an active segment; cloud sync can wipe it.
   useEffect(() => {
-    if (!hasStarted || allDone || isTaskBlocking || manuallyPaused || segmentStart !== null) {
+    if (
+      !enabled ||
+      !hasStarted ||
+      allDone ||
+      isTaskBlocking ||
+      manuallyPaused ||
+      segmentStart !== null
+    ) {
       return;
     }
     if (getActiveScheduleBlock(todayTasks, new Date()) !== null) return;
     setLeroLero((prev) => beginLeroLeroSegment(prev, todayKey));
   }, [
+    enabled,
     hasStarted,
     allDone,
     isTaskBlocking,
@@ -209,23 +225,25 @@ export function useLeroLero({
   ]);
 
   useEffect(() => {
-    if (!hasStarted || allDone || isTaskBlocking || manuallyPaused) return;
+    if (!enabled || !hasStarted || allDone || isTaskBlocking || manuallyPaused) return;
 
     const id = setInterval(() => setNow(new Date()), 250);
     return () => clearInterval(id);
-  }, [hasStarted, allDone, isTaskBlocking, manuallyPaused]);
+  }, [enabled, hasStarted, allDone, isTaskBlocking, manuallyPaused]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (hasStarted && !allDone && areAllTasksDoneToday(todayTasks)) {
       finalizeDay();
     }
-  }, [todayTasks, hasStarted, allDone, finalizeDay]);
+  }, [enabled, todayTasks, hasStarted, allDone, finalizeDay]);
 
   const elapsedMs = useMemo(() => {
-    if (!hasStarted) return 0;
+    if (!enabled || !hasStarted) return 0;
     if (allDone || isTaskBlocking || manuallyPaused) return accumulatedMs;
     return getLeroLeroTotalMs(leroLero, scheduledTasks, now);
   }, [
+    enabled,
     hasStarted,
     allDone,
     isTaskBlocking,
@@ -237,6 +255,7 @@ export function useLeroLero({
   ]);
 
   const isCounting =
+    enabled &&
     hasStarted &&
     !allDone &&
     !isTaskBlocking &&
@@ -245,11 +264,16 @@ export function useLeroLero({
     segmentStart !== null;
 
   const isPausedBySchedule =
-    hasStarted && !allDone && !isTaskBlocking && !manuallyPaused && scheduleBlock !== null;
+    enabled &&
+    hasStarted &&
+    !allDone &&
+    !isTaskBlocking &&
+    !manuallyPaused &&
+    scheduleBlock !== null;
 
-  const isManuallyPaused = hasStarted && !allDone && Boolean(manuallyPaused);
-  const isVisible = hasStarted;
-  const canTogglePause = hasStarted && !allDone;
+  const isManuallyPaused = enabled && hasStarted && !allDone && Boolean(manuallyPaused);
+  const isVisible = enabled && hasStarted;
+  const canTogglePause = enabled && hasStarted && !allDone;
 
   return {
     elapsedMs,

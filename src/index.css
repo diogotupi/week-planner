@@ -1020,6 +1020,389 @@ body {
   color: var(--text);
 }
 
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.settings-toggle:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.settings-toggle input {
+  margin-top: 0.2rem;
+}
+
+/* ── Tarefas repetidas ── */
+
+.recurring-modal {
+  max-width: 560px;
+}
+
+.recurring-lead {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.recurring-empty {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.recurring-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.recurring-card {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.recurring-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.recurring-card-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.recurring-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.recurring-count {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.recurring-day-picker {
+  margin-top: 0.65rem;
+}
+
+.recurring-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.recurring-weekly-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.recurring-remove-all {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #a33b26;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.recurring-remove-all:hover {
+  color: #c8553d;
+}
+
+.recurring-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.recurring-confirm-yes,
+.recurring-confirm-no {
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.recurring-confirm-yes {
+  background: #c8553d;
+  color: white;
+}
+
+.recurring-confirm-yes:hover {
+  background: #a33b26;
+}
+
+.recurring-confirm-no {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* ── Strikes ── */
+
+.strikes-panel {
+  margin: 0 0 1.5rem;
+  padding: 1.1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+}
+
+.strikes-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.strikes-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.strikes-subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.strikes-add-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.strikes-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.strikes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.strike-card {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.strike-card-done {
+  background: var(--accent-light);
+  border-color: rgba(45, 106, 79, 0.25);
+}
+
+.strike-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.strike-card-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.strike-card-progress {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.strike-today-ok {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.strike-today-fail {
+  color: #a33b26;
+  font-weight: 600;
+}
+
+.strike-remove {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+}
+
+.strike-remove:hover {
+  color: #c8553d;
+}
+
+.strike-bar {
+  margin-top: 0.65rem;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.strike-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.strike-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.strike-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.strike-btn-ok {
+  background: var(--accent);
+  color: white;
+}
+
+.strike-btn-ok:hover {
+  background: var(--accent-hover);
+}
+
+.strike-btn-fail {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.strike-btn-fail:hover {
+  border-color: #c8553d;
+  color: #a33b26;
+}
+
+.strike-done-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.strike-modal-lead {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.strike-prompt-card {
+  max-width: 460px;
+}
+
+.strike-prompt-message {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.strike-prompt-hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.strike-prompt-encourage {
+  margin: 0.85rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.strike-fail-actions {
+  flex-direction: column;
+}
+
+.strike-result-stats {
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.strike-result-stats p {
+  margin: 0.15rem 0;
+}
+
+@media (max-width: 640px) {
+  .strikes-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .strikes-add-btn {
+    width: 100%;
+  }
+}
+
 .btn-primary,
 .btn-secondary {
   flex: 1;

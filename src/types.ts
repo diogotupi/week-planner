@@ -36,11 +36,32 @@ export type WeekViewMode = 'calendar' | 'rolling';
 
 export interface UserPreferences {
   weekViewMode: WeekViewMode;
+  /** Quando false, o lero lero fica oculto e não conta. */
+  leroLeroEnabled: boolean;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   weekViewMode: 'calendar',
+  leroLeroEnabled: true,
 };
+
+export type StrikeStatus = 'active' | 'completed';
+
+export type StrikeCheckInResult = 'success' | 'fail';
+
+export interface Strike {
+  id: string;
+  title: string;
+  targetDays: number;
+  /** Dias cumpridos na tentativa atual. */
+  completedDays: number;
+  status: StrikeStatus;
+  /** Última data em que houve check-in (sucesso ou falha). */
+  lastCheckInDate: string | null;
+  lastCheckInResult: StrikeCheckInResult | null;
+  createdDateKey: string;
+  completedDateKey?: string;
+}
 
 export interface LeroLeroState {
   dateKey: string;

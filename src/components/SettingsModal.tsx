@@ -49,7 +49,9 @@ export function SettingsModal({ preferences, onChange, onClose }: SettingsModalP
                   name="weekViewMode"
                   value={option.value}
                   checked={preferences.weekViewMode === option.value}
-                  onChange={() => onChange({ weekViewMode: option.value })}
+                  onChange={() =>
+                    onChange({ ...preferences, weekViewMode: option.value })
+                  }
                 />
                 <span className="settings-option-text">
                   <strong>{option.title}</strong>
@@ -58,6 +60,25 @@ export function SettingsModal({ preferences, onChange, onClose }: SettingsModalP
               </label>
             ))}
           </div>
+        </fieldset>
+
+        <fieldset className="settings-fieldset">
+          <legend className="settings-legend">Lero lero</legend>
+          <label className="settings-option settings-toggle">
+            <input
+              type="checkbox"
+              checked={preferences.leroLeroEnabled}
+              onChange={(e) =>
+                onChange({ ...preferences, leroLeroEnabled: e.target.checked })
+              }
+            />
+            <span className="settings-option-text">
+              <strong>Ativar lero lero</strong>
+              <span>
+                Conta o tempo “à toa” entre tarefas. Desative se preferir não usar.
+              </span>
+            </span>
+          </label>
         </fieldset>
 
         <div className="modal-actions">

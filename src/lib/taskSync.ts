@@ -1,4 +1,13 @@
-import type { DayOfWeek, LeroLeroState, Task, TaskTimerState, UserPreferences } from '../types';
+import type {
+  DayOfWeek,
+  LeroLeroState,
+  Strike,
+  StrikeCheckInResult,
+  StrikeStatus,
+  Task,
+  TaskTimerState,
+  UserPreferences,
+} from '../types';
 import { DEFAULT_USER_PREFERENCES } from '../types';
 import {
   applyMissedMidnightRollovers,
@@ -26,6 +35,7 @@ export interface PlannerData {
   leroLero: LeroLeroState;
   taskTimer: TaskTimerState;
   preferences: UserPreferences;
+  strikes: Strike[];
 }
 
 function preferencesStorageKey(username: string) {
@@ -40,7 +50,76 @@ export function normalizeUserPreferences(raw: unknown): UserPreferences {
       state.weekViewMode === 'rolling' || state.weekViewMode === 'calendar'
         ? state.weekViewMode
         : DEFAULT_USER_PREFERENCES.weekViewMode,
+    leroLeroEnabled:
+      typeof state.leroLeroEnabled === 'boolean'
+        ? state.leroLeroEnabled
+        : DEFAULT_USER_PREFERENCES.leroLeroEnabled,
   };
+}
+
+function normalizeStrike(raw: unknown): Strike | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = raw as Partial<Strike>;
+  if (typeof s.id !== 'string' || typeof s.title !== 'string') return null;
+  const targetDays = typeof s.targetDays === 'number' ? Math.max(1, Math.floor(s.targetDays)) : 0;
+  if (targetDays < 1) return null;
+  const status: StrikeStatus = s.status === 'completed' ? 'completed' : 'active';
+  const lastCheckInResult: StrikeCheckInResult | null =
+    s.lastCheckInResult === 'success' || s.lastCheckInResult === 'fail'
+      ? s.lastCheckInResult
+      : null;
+  return {
+    id: s.id,
+    title: s.title.trim() || 'Objetivo',
+    targetDays,
+    completedDays:
+      typeof s.completedDays === 'number' ? Math.max(0, Math.floor(s.completedDays)) : 0,
+    status,
+    lastCheckInDate: typeof s.lastCheckInDate === 'string' ? s.lastCheckInDate : null,
+    lastCheckInResult,
+    createdDateKey: typeof s.createdDateKey === 'string' ? s.createdDateKey : getDateKey(),
+    completedDateKey: typeof s.completedDateKey === 'string' ? s.completedDateKey : undefined,
+  };
+}
+
+export function normalizeStrikes(raw: unknown): Strike[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(normalizeStrike).filter((s): s is Strike => s !== null);
+}
+
+function mergeStrikes(local: Strike[], remote: Strike[]): Strike[] {
+  const byId = new Map<string, Strike>();
+  for (const strike of remote) byId.set(strike.id, strike);
+  for (const strike of local) {
+    const existing = byId.get(strike.id);
+    if (!existing) {
+      byId.set(strike.id, strike);
+      continue;
+    }
+    // Prefer the one with more progress / completed status
+    if (strike.status === 'completed' && existing.status !== 'completed') {
+      byId.set(strike.id, strike);
+    } else if (
+      strike.status === existing.status &&
+      strike.completedDays > existing.completedDays
+    ) {
+      byId.set(strike.id, strike);
+    } else if (
+      strike.lastCheckInDate &&
+      (!existing.lastCheckInDate || strike.lastCheckInDate > existing.lastCheckInDate)
+    ) {
+      byId.set(strike.id, strike);
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) =>
+    a.createdDateKey === b.createdDateKey
+      ? a.title.localeCompare(b.title, 'pt-BR')
+      : a.createdDateKey.localeCompare(b.createdDateKey),
+  );
+}
+
+function strikesStorageKey(username: string) {
+  return `week-planner-strikes-${username}`;
 }
 
 function storageKey(username: string) {
@@ -108,6 +187,7 @@ function loadLocalPlannerData(username: string): PlannerData {
   let leroLero = emptyLeroLero(todayKey);
   let taskTimer = emptyTaskTimer(todayKey);
   let preferences = { ...DEFAULT_USER_PREFERENCES };
+  let strikes: Strike[] = [];
 
   try {
     const rawTasks = localStorage.getItem(storageKey(username));
@@ -124,12 +204,20 @@ function loadLocalPlannerData(username: string): PlannerData {
   }
 
   try {
+    const rawStrikes = localStorage.getItem(strikesStorageKey(username));
+    if (rawStrikes) strikes = normalizeStrikes(JSON.parse(rawStrikes));
+  } catch {
+    strikes = [];
+  }
+
+  try {
     const rawLero = localStorage.getItem(leroLeroStorageKey(username));
     if (rawLero) {
       const parsed = JSON.parse(rawLero) as {
         leroLero?: unknown;
         taskTimer?: unknown;
         preferences?: unknown;
+        strikes?: unknown;
         lastDateKey?: string;
       };
       if (parsed.leroLero) {
@@ -140,6 +228,9 @@ function loadLocalPlannerData(username: string): PlannerData {
       }
       if (parsed.preferences) {
         preferences = normalizeUserPreferences(parsed.preferences);
+      }
+      if (parsed.strikes) {
+        strikes = normalizeStrikes(parsed.strikes);
       }
       if (parsed.lastDateKey && parsed.lastDateKey !== todayKey) {
         tasks = applyMissedMidnightRollovers(tasks, parsed.lastDateKey, todayKey);
@@ -162,7 +253,7 @@ function loadLocalPlannerData(username: string): PlannerData {
   }
 
   taskTimer = pruneTaskTimerForTasks(taskTimer, tasks);
-  return { tasks, leroLero, taskTimer, preferences };
+  return { tasks, leroLero, taskTimer, preferences, strikes };
 }
 
 function getTodayScheduledTasks(tasks: Task[]): Task[] {
@@ -184,12 +275,14 @@ function cacheLocal(username: string, data: PlannerData) {
 
   localStorage.setItem(storageKey(username), JSON.stringify(payload.tasks));
   localStorage.setItem(preferencesStorageKey(username), JSON.stringify(payload.preferences));
+  localStorage.setItem(strikesStorageKey(username), JSON.stringify(payload.strikes));
   localStorage.setItem(
     leroLeroStorageKey(username),
     JSON.stringify({
       leroLero: payload.leroLero,
       taskTimer: payload.taskTimer,
       preferences: payload.preferences,
+      strikes: payload.strikes,
       lastDateKey: payload.leroLero.dateKey,
     }),
   );
@@ -200,6 +293,7 @@ function reconcilePlannerData(
   remoteLeroLero: unknown,
   remoteTaskTimer: unknown,
   remotePreferences: unknown,
+  remoteStrikes: unknown,
   local: PlannerData,
 ): PlannerData {
   const todayKey = getDateKey();
@@ -242,8 +336,9 @@ function reconcilePlannerData(
   taskTimer = pruneTaskTimerForTasks(taskTimer, tasks);
 
   const preferences = normalizeUserPreferences(remotePreferences ?? local.preferences);
+  const strikes = mergeStrikes(local.strikes, normalizeStrikes(remoteStrikes));
 
-  return { tasks, leroLero, taskTimer, preferences };
+  return { tasks, leroLero, taskTimer, preferences, strikes };
 }
 
 export async function fetchPlannerData(username: string): Promise<PlannerData> {
@@ -265,6 +360,7 @@ export async function fetchPlannerData(username: string): Promise<PlannerData> {
       leroLero: unknown;
       taskTimer: unknown;
       preferences: unknown;
+      strikes: unknown;
     };
 
     const remoteTasks = normalizeTasks(data.tasks);
@@ -273,6 +369,7 @@ export async function fetchPlannerData(username: string): Promise<PlannerData> {
       data.leroLero,
       data.taskTimer,
       data.preferences,
+      data.strikes,
       local,
     );
 
@@ -307,6 +404,7 @@ export async function savePlannerData(username: string, data: PlannerData): Prom
       leroLero: payload.leroLero,
       taskTimer: payload.taskTimer,
       preferences: payload.preferences,
+      strikes: payload.strikes,
     }),
   });
 
@@ -328,6 +426,7 @@ export async function saveTasks(username: string, tasks: Task[]): Promise<void> 
     leroLero: local.leroLero,
     taskTimer: local.taskTimer,
     preferences: local.preferences,
+    strikes: local.strikes,
   });
 }
 

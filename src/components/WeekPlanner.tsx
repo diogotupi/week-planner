@@ -8,7 +8,9 @@ import { PlannerSettingsProvider } from '../context/PlannerSettingsContext';
 import { DayColumn, type DragTarget } from './DayColumn';
 import { LeroLeroBar } from './LeroLeroBar';
 import { OvertimePrompt } from './OvertimePrompt';
+import { RecurringTasksModal } from './RecurringTasksModal';
 import { SettingsModal } from './SettingsModal';
+import { StrikesPanel } from './StrikesPanel';
 import {
   playTaskFinishedSound,
   playTaskNotificationSound,
@@ -46,6 +48,9 @@ export function WeekPlanner({
     completeTaskOvertime,
     resetTaskCompletionForToday,
     removeTask,
+    removeTaskGroup,
+    setRecurringDays,
+    setRecurringWeekly,
     moveTask,
     getTasksForDay,
     tasks,
@@ -60,10 +65,16 @@ export function WeekPlanner({
     preferences,
     setPreferences,
     weekViewMode,
+    strikes,
+    addStrike,
+    markStrikeSuccess,
+    markStrikeFail,
+    removeStrike,
   } = useTasks(username);
 
   const [overtimePromptTaskId, setOvertimePromptTaskId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showRecurring, setShowRecurring] = useState(false);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragTarget, setDragTarget] = useState<DragTarget | null>(null);
   const todayDay = getTodayDayOfWeek();
@@ -101,6 +112,8 @@ export function WeekPlanner({
 
   const isTaskBlocking = activeTaskId !== null;
 
+  const leroLeroEnabled = preferences.leroLeroEnabled;
+
   const leroLeroControls = useLeroLero({
     username,
     todayTasks,
@@ -109,6 +122,7 @@ export function WeekPlanner({
     todayKey,
     leroLero,
     setLeroLero,
+    enabled: leroLeroEnabled,
   });
   onLeroLeroTaskCompletedRef.current = leroLeroControls.onTaskCompleted;
 
@@ -300,6 +314,9 @@ export function WeekPlanner({
             )}
           </div>
           <div className="planner-header-actions">
+            <button type="button" className="btn-secondary" onClick={() => setShowRecurring(true)}>
+              Repetidas
+            </button>
             <button type="button" className="btn-secondary" onClick={() => setShowSettings(true)}>
               Configurações
             </button>
@@ -311,7 +328,7 @@ export function WeekPlanner({
             </button>
           </div>
         </div>
-        {leroLeroControls.isVisible && (
+        {leroLeroEnabled && leroLeroControls.isVisible && (
           <LeroLeroBar
             elapsedMs={leroLeroControls.elapsedMs}
             isCounting={leroLeroControls.isCounting}
@@ -326,6 +343,15 @@ export function WeekPlanner({
           />
         )}
       </header>
+
+      <StrikesPanel
+        strikes={strikes}
+        todayKey={todayKey}
+        onAdd={addStrike}
+        onSuccess={markStrikeSuccess}
+        onFail={markStrikeFail}
+        onRemove={removeStrike}
+      />
 
       <div className="days-grid-wrapper" ref={daysGridRef}>
         <div className="days-grid">
@@ -380,6 +406,20 @@ export function WeekPlanner({
           preferences={preferences}
           onChange={setPreferences}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {showRecurring && (
+        <RecurringTasksModal
+          tasks={tasks}
+          onSetDays={setRecurringDays}
+          onSetWeekly={setRecurringWeekly}
+          onRemoveDay={(taskId) => {
+            if (activeTaskId === taskId || isTaskPaused(taskId)) clearTimer(taskId);
+            removeTask(taskId);
+          }}
+          onRemoveAll={removeTaskGroup}
+          onClose={() => setShowRecurring(false)}
         />
       )}
     </div>
