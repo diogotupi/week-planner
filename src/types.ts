@@ -45,20 +45,20 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   leroLeroEnabled: true,
 };
 
-export type StrikeStatus = 'active' | 'completed';
+export type StreakStatus = 'active' | 'completed';
 
-export type StrikeCheckInResult = 'success' | 'fail';
+export type StreakCheckInResult = 'success' | 'fail';
 
-export interface Strike {
+export interface Streak {
   id: string;
   title: string;
   targetDays: number;
   /** Dias cumpridos na tentativa atual. */
   completedDays: number;
-  status: StrikeStatus;
+  status: StreakStatus;
   /** Última data em que houve check-in (sucesso ou falha). */
   lastCheckInDate: string | null;
-  lastCheckInResult: StrikeCheckInResult | null;
+  lastCheckInResult: StreakCheckInResult | null;
   createdDateKey: string;
   completedDateKey?: string;
 }

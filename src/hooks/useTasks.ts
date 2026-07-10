@@ -4,7 +4,7 @@ import { saveDayStats } from '../lib/dayStatsSync';
 import type {
   DayOfWeek,
   LeroLeroState,
-  Strike,
+  Streak,
   Task,
   TaskTimerState,
   UserPreferences,
@@ -41,7 +41,7 @@ export function useTasks(username: string) {
   const [preferences, setPreferences] = useState<UserPreferences>(() => ({
     ...DEFAULT_USER_PREFERENCES,
   }));
-  const [strikes, setStrikes] = useState<Strike[]>([]);
+  const [streaks, setStreaks] = useState<Streak[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export function useTasks(username: string) {
       setLeroLero(data.leroLero);
       setTaskTimer(pruneTaskTimerForTasks(data.taskTimer, data.tasks));
       setPreferences(data.preferences);
-      setStrikes(data.strikes);
+      setStreaks(data.streaks);
       setTodayKey(getDateKey());
       setLoading(false);
       skipSaveRef.current = false;
@@ -90,7 +90,7 @@ export function useTasks(username: string) {
       setSyncing(true);
       setSyncError(null);
 
-      savePlannerData(username, { tasks, leroLero, taskTimer, preferences, strikes })
+      savePlannerData(username, { tasks, leroLero, taskTimer, preferences, streaks })
         .catch(() => {
           setSyncError('Não foi possível sincronizar. Dados salvos localmente.');
         })
@@ -100,7 +100,7 @@ export function useTasks(username: string) {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [tasks, leroLero, taskTimer, preferences, strikes, username, loading]);
+  }, [tasks, leroLero, taskTimer, preferences, streaks, username, loading]);
 
   useEffect(() => {
     let timerId = 0;
@@ -492,12 +492,12 @@ export function useTasks(username: string) {
     setTaskTimer((prev) => pruneTaskTimerForTasks(prev, tasks));
   }, [tasks]);
 
-  const addStrike = useCallback((title: string, targetDays: number) => {
+  const addStreak = useCallback((title: string, targetDays: number) => {
     const trimmed = title.trim();
     const days = Math.max(1, Math.floor(targetDays));
     if (!trimmed || days < 1) return;
 
-    const strike: Strike = {
+    const streak: Streak = {
       id: generateId(),
       title: trimmed,
       targetDays: days,
@@ -507,22 +507,22 @@ export function useTasks(username: string) {
       lastCheckInResult: null,
       createdDateKey: getDateKey(),
     };
-    setStrikes((prev) => [...prev, strike]);
+    setStreaks((prev) => [...prev, streak]);
   }, []);
 
-  const markStrikeSuccess = useCallback((id: string) => {
+  const markStreakSuccess = useCallback((id: string) => {
     const today = getDateKey();
-    setStrikes((prev) =>
-      prev.map((strike) => {
-        if (strike.id !== id || strike.status !== 'active') return strike;
-        if (strike.lastCheckInDate === today && strike.lastCheckInResult === 'success') {
-          return strike;
+    setStreaks((prev) =>
+      prev.map((streak) => {
+        if (streak.id !== id || streak.status !== 'active') return streak;
+        if (streak.lastCheckInDate === today && streak.lastCheckInResult === 'success') {
+          return streak;
         }
 
-        const nextDays = strike.completedDays + 1;
-        if (nextDays >= strike.targetDays) {
+        const nextDays = streak.completedDays + 1;
+        if (nextDays >= streak.targetDays) {
           return {
-            ...strike,
+            ...streak,
             completedDays: nextDays,
             status: 'completed',
             lastCheckInDate: today,
@@ -532,7 +532,7 @@ export function useTasks(username: string) {
         }
 
         return {
-          ...strike,
+          ...streak,
           completedDays: nextDays,
           lastCheckInDate: today,
           lastCheckInResult: 'success',
@@ -541,14 +541,14 @@ export function useTasks(username: string) {
     );
   }, []);
 
-  const markStrikeFail = useCallback((id: string, reset: boolean) => {
+  const markStreakFail = useCallback((id: string, reset: boolean) => {
     const today = getDateKey();
-    setStrikes((prev) =>
-      prev.map((strike) => {
-        if (strike.id !== id || strike.status !== 'active') return strike;
+    setStreaks((prev) =>
+      prev.map((streak) => {
+        if (streak.id !== id || streak.status !== 'active') return streak;
         return {
-          ...strike,
-          completedDays: reset ? 0 : strike.completedDays,
+          ...streak,
+          completedDays: reset ? 0 : streak.completedDays,
           lastCheckInDate: today,
           lastCheckInResult: 'fail',
         };
@@ -556,8 +556,8 @@ export function useTasks(username: string) {
     );
   }, []);
 
-  const removeStrike = useCallback((id: string) => {
-    setStrikes((prev) => prev.filter((strike) => strike.id !== id));
+  const removeStreak = useCallback((id: string) => {
+    setStreaks((prev) => prev.filter((streak) => streak.id !== id));
   }, []);
 
   return {
@@ -566,7 +566,7 @@ export function useTasks(username: string) {
     setLeroLero,
     taskTimer,
     setTaskTimer,
-    strikes,
+    streaks,
     loading,
     syncing,
     syncError,
@@ -585,10 +585,10 @@ export function useTasks(username: string) {
     reorderTasks,
     moveTask,
     getTasksForDay,
-    addStrike,
-    markStrikeSuccess,
-    markStrikeFail,
-    removeStrike,
+    addStreak,
+    markStreakSuccess,
+    markStreakFail,
+    removeStreak,
     preferences,
     setPreferences,
     weekViewMode,

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
-interface AddStrikeModalProps {
+interface AddStreakModalProps {
   onAdd: (title: string, targetDays: number) => void;
   onClose: () => void;
 }
 
-export function AddStrikeModal({ onAdd, onClose }: AddStrikeModalProps) {
+export function AddStreakModal({ onAdd, onClose }: AddStreakModalProps) {
   const [title, setTitle] = useState('');
   const [days, setDays] = useState('30');
   const [error, setError] = useState<string | null>(null);
@@ -32,21 +32,21 @@ export function AddStrikeModal({ onAdd, onClose }: AddStrikeModalProps) {
         className="modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="add-strike-title"
+        aria-labelledby="add-streak-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="add-strike-title" className="modal-title">
-          Novo strike
+        <h2 id="add-streak-title" className="modal-title">
+          Nova streak
         </h2>
-        <p className="strike-modal-lead">
+        <p className="streak-modal-lead">
           Defina um objetivo diário. No fim de cada dia, marque se conseguiu cumprir.
         </p>
         <form className="modal-form" onSubmit={handleSubmit}>
-          <label className="field-label" htmlFor="strike-title">
+          <label className="field-label" htmlFor="streak-title">
             Objetivo
           </label>
           <input
-            id="strike-title"
+            id="streak-title"
             className="field-input"
             type="text"
             placeholder="Ex: 100 dias sem abrir o Instagram"
@@ -58,11 +58,11 @@ export function AddStrikeModal({ onAdd, onClose }: AddStrikeModalProps) {
             autoFocus
           />
 
-          <label className="field-label" htmlFor="strike-days">
+          <label className="field-label" htmlFor="streak-days">
             Quantos dias?
           </label>
           <input
-            id="strike-days"
+            id="streak-days"
             className="field-input"
             type="number"
             min={1}

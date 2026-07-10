@@ -1,9 +1,9 @@
 import type {
   DayOfWeek,
   LeroLeroState,
-  Strike,
-  StrikeCheckInResult,
-  StrikeStatus,
+  Streak,
+  StreakCheckInResult,
+  StreakStatus,
   Task,
   TaskTimerState,
   UserPreferences,
@@ -35,7 +35,7 @@ export interface PlannerData {
   leroLero: LeroLeroState;
   taskTimer: TaskTimerState;
   preferences: UserPreferences;
-  strikes: Strike[];
+  streaks: Streak[];
 }
 
 function preferencesStorageKey(username: string) {
@@ -57,14 +57,14 @@ export function normalizeUserPreferences(raw: unknown): UserPreferences {
   };
 }
 
-function normalizeStrike(raw: unknown): Strike | null {
+function normalizeStreak(raw: unknown): Streak | null {
   if (!raw || typeof raw !== 'object') return null;
-  const s = raw as Partial<Strike>;
+  const s = raw as Partial<Streak>;
   if (typeof s.id !== 'string' || typeof s.title !== 'string') return null;
   const targetDays = typeof s.targetDays === 'number' ? Math.max(1, Math.floor(s.targetDays)) : 0;
   if (targetDays < 1) return null;
-  const status: StrikeStatus = s.status === 'completed' ? 'completed' : 'active';
-  const lastCheckInResult: StrikeCheckInResult | null =
+  const status: StreakStatus = s.status === 'completed' ? 'completed' : 'active';
+  const lastCheckInResult: StreakCheckInResult | null =
     s.lastCheckInResult === 'success' || s.lastCheckInResult === 'fail'
       ? s.lastCheckInResult
       : null;
@@ -82,33 +82,33 @@ function normalizeStrike(raw: unknown): Strike | null {
   };
 }
 
-export function normalizeStrikes(raw: unknown): Strike[] {
+export function normalizeStreaks(raw: unknown): Streak[] {
   if (!Array.isArray(raw)) return [];
-  return raw.map(normalizeStrike).filter((s): s is Strike => s !== null);
+  return raw.map(normalizeStreak).filter((s): s is Streak => s !== null);
 }
 
-function mergeStrikes(local: Strike[], remote: Strike[]): Strike[] {
-  const byId = new Map<string, Strike>();
-  for (const strike of remote) byId.set(strike.id, strike);
-  for (const strike of local) {
-    const existing = byId.get(strike.id);
+function mergeStreaks(local: Streak[], remote: Streak[]): Streak[] {
+  const byId = new Map<string, Streak>();
+  for (const streak of remote) byId.set(streak.id, streak);
+  for (const streak of local) {
+    const existing = byId.get(streak.id);
     if (!existing) {
-      byId.set(strike.id, strike);
+      byId.set(streak.id, streak);
       continue;
     }
     // Prefer the one with more progress / completed status
-    if (strike.status === 'completed' && existing.status !== 'completed') {
-      byId.set(strike.id, strike);
+    if (streak.status === 'completed' && existing.status !== 'completed') {
+      byId.set(streak.id, streak);
     } else if (
-      strike.status === existing.status &&
-      strike.completedDays > existing.completedDays
+      streak.status === existing.status &&
+      streak.completedDays > existing.completedDays
     ) {
-      byId.set(strike.id, strike);
+      byId.set(streak.id, streak);
     } else if (
-      strike.lastCheckInDate &&
-      (!existing.lastCheckInDate || strike.lastCheckInDate > existing.lastCheckInDate)
+      streak.lastCheckInDate &&
+      (!existing.lastCheckInDate || streak.lastCheckInDate > existing.lastCheckInDate)
     ) {
-      byId.set(strike.id, strike);
+      byId.set(streak.id, streak);
     }
   }
   return Array.from(byId.values()).sort((a, b) =>
@@ -118,7 +118,8 @@ function mergeStrikes(local: Strike[], remote: Strike[]): Strike[] {
   );
 }
 
-function strikesStorageKey(username: string) {
+// Mantém a chave antiga ("strikes") para não perder dados já salvos.
+function streaksStorageKey(username: string) {
   return `week-planner-strikes-${username}`;
 }
 
@@ -187,7 +188,7 @@ function loadLocalPlannerData(username: string): PlannerData {
   let leroLero = emptyLeroLero(todayKey);
   let taskTimer = emptyTaskTimer(todayKey);
   let preferences = { ...DEFAULT_USER_PREFERENCES };
-  let strikes: Strike[] = [];
+  let streaks: Streak[] = [];
 
   try {
     const rawTasks = localStorage.getItem(storageKey(username));
@@ -204,10 +205,10 @@ function loadLocalPlannerData(username: string): PlannerData {
   }
 
   try {
-    const rawStrikes = localStorage.getItem(strikesStorageKey(username));
-    if (rawStrikes) strikes = normalizeStrikes(JSON.parse(rawStrikes));
+    const rawStreaks = localStorage.getItem(streaksStorageKey(username));
+    if (rawStreaks) streaks = normalizeStreaks(JSON.parse(rawStreaks));
   } catch {
-    strikes = [];
+    streaks = [];
   }
 
   try {
@@ -230,7 +231,7 @@ function loadLocalPlannerData(username: string): PlannerData {
         preferences = normalizeUserPreferences(parsed.preferences);
       }
       if (parsed.strikes) {
-        strikes = normalizeStrikes(parsed.strikes);
+        streaks = normalizeStreaks(parsed.strikes);
       }
       if (parsed.lastDateKey && parsed.lastDateKey !== todayKey) {
         tasks = applyMissedMidnightRollovers(tasks, parsed.lastDateKey, todayKey);
@@ -253,7 +254,7 @@ function loadLocalPlannerData(username: string): PlannerData {
   }
 
   taskTimer = pruneTaskTimerForTasks(taskTimer, tasks);
-  return { tasks, leroLero, taskTimer, preferences, strikes };
+  return { tasks, leroLero, taskTimer, preferences, streaks };
 }
 
 function getTodayScheduledTasks(tasks: Task[]): Task[] {
@@ -275,14 +276,14 @@ function cacheLocal(username: string, data: PlannerData) {
 
   localStorage.setItem(storageKey(username), JSON.stringify(payload.tasks));
   localStorage.setItem(preferencesStorageKey(username), JSON.stringify(payload.preferences));
-  localStorage.setItem(strikesStorageKey(username), JSON.stringify(payload.strikes));
+  localStorage.setItem(streaksStorageKey(username), JSON.stringify(payload.streaks));
   localStorage.setItem(
     leroLeroStorageKey(username),
     JSON.stringify({
       leroLero: payload.leroLero,
       taskTimer: payload.taskTimer,
       preferences: payload.preferences,
-      strikes: payload.strikes,
+      strikes: payload.streaks,
       lastDateKey: payload.leroLero.dateKey,
     }),
   );
@@ -293,7 +294,7 @@ function reconcilePlannerData(
   remoteLeroLero: unknown,
   remoteTaskTimer: unknown,
   remotePreferences: unknown,
-  remoteStrikes: unknown,
+  remoteStreaks: unknown,
   local: PlannerData,
 ): PlannerData {
   const todayKey = getDateKey();
@@ -336,9 +337,9 @@ function reconcilePlannerData(
   taskTimer = pruneTaskTimerForTasks(taskTimer, tasks);
 
   const preferences = normalizeUserPreferences(remotePreferences ?? local.preferences);
-  const strikes = mergeStrikes(local.strikes, normalizeStrikes(remoteStrikes));
+  const streaks = mergeStreaks(local.streaks, normalizeStreaks(remoteStreaks));
 
-  return { tasks, leroLero, taskTimer, preferences, strikes };
+  return { tasks, leroLero, taskTimer, preferences, streaks };
 }
 
 export async function fetchPlannerData(username: string): Promise<PlannerData> {
@@ -404,7 +405,8 @@ export async function savePlannerData(username: string, data: PlannerData): Prom
       leroLero: payload.leroLero,
       taskTimer: payload.taskTimer,
       preferences: payload.preferences,
-      strikes: payload.strikes,
+      // Campo na API/DB continua "strikes" por compatibilidade
+      strikes: payload.streaks,
     }),
   });
 
@@ -426,7 +428,7 @@ export async function saveTasks(username: string, tasks: Task[]): Promise<void> 
     leroLero: local.leroLero,
     taskTimer: local.taskTimer,
     preferences: local.preferences,
-    strikes: local.strikes,
+    streaks: local.streaks,
   });
 }
 

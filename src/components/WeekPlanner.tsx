@@ -10,7 +10,7 @@ import { LeroLeroBar } from './LeroLeroBar';
 import { OvertimePrompt } from './OvertimePrompt';
 import { RecurringTasksModal } from './RecurringTasksModal';
 import { SettingsModal } from './SettingsModal';
-import { StrikesPanel } from './StrikesPanel';
+import { StreaksPanel } from './StreaksPanel';
 import {
   playTaskFinishedSound,
   playTaskNotificationSound,
@@ -65,11 +65,11 @@ export function WeekPlanner({
     preferences,
     setPreferences,
     weekViewMode,
-    strikes,
-    addStrike,
-    markStrikeSuccess,
-    markStrikeFail,
-    removeStrike,
+    streaks,
+    addStreak,
+    markStreakSuccess,
+    markStreakFail,
+    removeStreak,
   } = useTasks(username);
 
   const [overtimePromptTaskId, setOvertimePromptTaskId] = useState<string | null>(null);
@@ -344,13 +344,13 @@ export function WeekPlanner({
         )}
       </header>
 
-      <StrikesPanel
-        strikes={strikes}
+      <StreaksPanel
+        streaks={streaks}
         todayKey={todayKey}
-        onAdd={addStrike}
-        onSuccess={markStrikeSuccess}
-        onFail={markStrikeFail}
-        onRemove={removeStrike}
+        onAdd={addStreak}
+        onSuccess={markStreakSuccess}
+        onFail={markStreakFail}
+        onRemove={removeStreak}
       />
 
       <div className="days-grid-wrapper" ref={daysGridRef}>
