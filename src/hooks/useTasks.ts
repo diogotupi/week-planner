@@ -21,6 +21,7 @@ import {
   getWeekKey,
   pruneTaskTimerForTasks,
 } from '../utils';
+import { getNextCheckInDate } from '../lib/streakUtils';
 
 export type UpdateScope = 'single' | 'all';
 
@@ -510,12 +511,14 @@ export function useTasks(username: string) {
     setStreaks((prev) => [...prev, streak]);
   }, []);
 
-  const markStreakSuccess = useCallback((id: string) => {
-    const today = getDateKey();
+  const markStreakSuccess = useCallback((id: string, dateKey: string) => {
     setStreaks((prev) =>
       prev.map((streak) => {
         if (streak.id !== id || streak.status !== 'active') return streak;
-        if (streak.lastCheckInDate === today && streak.lastCheckInResult === 'success') {
+        const today = getDateKey();
+        const expectedDate = getNextCheckInDate(streak, today);
+        if (!expectedDate || dateKey !== expectedDate) return streak;
+        if (streak.lastCheckInDate === dateKey && streak.lastCheckInResult === 'success') {
           return streak;
         }
 
@@ -525,31 +528,33 @@ export function useTasks(username: string) {
             ...streak,
             completedDays: nextDays,
             status: 'completed',
-            lastCheckInDate: today,
+            lastCheckInDate: dateKey,
             lastCheckInResult: 'success',
-            completedDateKey: today,
+            completedDateKey: dateKey,
           };
         }
 
         return {
           ...streak,
           completedDays: nextDays,
-          lastCheckInDate: today,
+          lastCheckInDate: dateKey,
           lastCheckInResult: 'success',
         };
       }),
     );
   }, []);
 
-  const markStreakFail = useCallback((id: string, reset: boolean) => {
-    const today = getDateKey();
+  const markStreakFail = useCallback((id: string, dateKey: string, reset: boolean) => {
     setStreaks((prev) =>
       prev.map((streak) => {
         if (streak.id !== id || streak.status !== 'active') return streak;
+        const today = getDateKey();
+        const expectedDate = getNextCheckInDate(streak, today);
+        if (!expectedDate || dateKey !== expectedDate) return streak;
         return {
           ...streak,
           completedDays: reset ? 0 : streak.completedDays,
-          lastCheckInDate: today,
+          lastCheckInDate: dateKey,
           lastCheckInResult: 'fail',
         };
       }),

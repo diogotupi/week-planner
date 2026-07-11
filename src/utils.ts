@@ -184,6 +184,13 @@ export function nextDateKey(dateKey: string): string {
   return getDateKey(date);
 }
 
+export function prevDateKey(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() - 1);
+  return getDateKey(date);
+}
+
 export function emptyLeroLero(dateKey = getDateKey()): LeroLeroState {
   return {
     dateKey,

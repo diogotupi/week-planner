@@ -1,22 +1,40 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Streak } from '../types';
+import {
+  getNextCheckInDate,
+  getPendingCheckInDate,
+} from '../lib/streakUtils';
+import { formatDateLabel } from '../utils';
 import { AddStreakModal } from './AddStreakModal';
 import { StreakFailModal } from './StreakFailModal';
+import { StreakPendingModal } from './StreakPendingModal';
 import { StreakSuccessModal } from './StreakSuccessModal';
 
 interface StreaksPanelProps {
   streaks: Streak[];
   todayKey: string;
   onAdd: (title: string, targetDays: number) => void;
-  onSuccess: (id: string) => void;
-  onFail: (id: string, reset: boolean) => void;
+  onSuccess: (id: string, dateKey: string) => void;
+  onFail: (id: string, dateKey: string, reset: boolean) => void;
   onRemove: (id: string) => void;
 }
 
 type PromptState =
-  | { type: 'success'; streak: Streak; completed: boolean }
-  | { type: 'fail'; streak: Streak }
+  | { type: 'pending'; streak: Streak; dateKey: string }
+  | { type: 'success'; streak: Streak; dateKey: string; completed: boolean }
+  | { type: 'fail'; streak: Streak; dateKey: string }
   | null;
+
+function findNextPending(
+  active: Streak[],
+  todayKey: string,
+): { streak: Streak; dateKey: string } | null {
+  for (const streak of active) {
+    const dateKey = getPendingCheckInDate(streak, todayKey);
+    if (dateKey) return { streak, dateKey };
+  }
+  return null;
+}
 
 export function StreaksPanel({
   streaks,
@@ -32,10 +50,18 @@ export function StreaksPanel({
   const active = streaks.filter((s) => s.status === 'active');
   const completed = streaks.filter((s) => s.status === 'completed');
 
-  function handleSuccess(streak: Streak) {
+  useEffect(() => {
+    if (prompt !== null || showAdd) return;
+    const next = findNextPending(active, todayKey);
+    if (next) {
+      setPrompt({ type: 'pending', streak: next.streak, dateKey: next.dateKey });
+    }
+  }, [active, todayKey, prompt, showAdd]);
+
+  function handleSuccess(streak: Streak, dateKey: string) {
     const nextDays = streak.completedDays + 1;
     const willComplete = nextDays >= streak.targetDays;
-    onSuccess(streak.id);
+    onSuccess(streak.id, dateKey);
     setPrompt({
       type: 'success',
       streak: {
@@ -43,12 +69,13 @@ export function StreaksPanel({
         completedDays: nextDays,
         status: willComplete ? 'completed' : 'active',
       },
+      dateKey,
       completed: willComplete,
     });
   }
 
-  function handleFailClick(streak: Streak) {
-    setPrompt({ type: 'fail', streak });
+  function handleFailClick(streak: Streak, dateKey: string) {
+    setPrompt({ type: 'fail', streak, dateKey });
   }
 
   function checkedInToday(streak: Streak): boolean {
@@ -60,7 +87,9 @@ export function StreaksPanel({
       <div className="streaks-header">
         <div>
           <h2 className="streaks-title">Streaks</h2>
-          <p className="streaks-subtitle">Objetivos diários. Marque no fim do dia.</p>
+          <p className="streaks-subtitle">
+            Objetivos diários. À meia-noite perguntamos se cumpriu o dia anterior.
+          </p>
         </div>
         <button type="button" className="btn-secondary streaks-add-btn" onClick={() => setShowAdd(true)}>
           + Nova streak
@@ -75,6 +104,8 @@ export function StreaksPanel({
       ) : (
         <ul className="streaks-list">
           {active.map((streak) => {
+            const pendingDate = getPendingCheckInDate(streak, todayKey);
+            const checkInDate = getNextCheckInDate(streak, todayKey);
             const doneToday = checkedInToday(streak);
             const progress = Math.min(100, (streak.completedDays / streak.targetDays) * 100);
             return (
@@ -84,6 +115,12 @@ export function StreaksPanel({
                     <p className="streak-card-title">{streak.title}</p>
                     <p className="streak-card-progress">
                       Dia {streak.completedDays} de {streak.targetDays}
+                      {pendingDate && (
+                        <span className="streak-today-fail">
+                          {' '}
+                          · pendente: {formatDateLabel(pendingDate)}
+                        </span>
+                      )}
                       {doneToday && streak.lastCheckInResult === 'success' && (
                         <span className="streak-today-ok"> · cumprido hoje</span>
                       )}
@@ -107,19 +144,19 @@ export function StreaksPanel({
                 <div className="streak-bar" aria-hidden="true">
                   <div className="streak-bar-fill" style={{ width: `${progress}%` }} />
                 </div>
-                {!doneToday && (
+                {checkInDate && (
                   <div className="streak-actions">
                     <button
                       type="button"
                       className="streak-btn streak-btn-ok"
-                      onClick={() => handleSuccess(streak)}
+                      onClick={() => handleSuccess(streak, checkInDate)}
                     >
-                      ✓ Cumpri hoje
+                      ✓ Cumpri {checkInDate === todayKey ? 'hoje' : formatDateLabel(checkInDate)}
                     </button>
                     <button
                       type="button"
                       className="streak-btn streak-btn-fail"
-                      onClick={() => handleFailClick(streak)}
+                      onClick={() => handleFailClick(streak, checkInDate)}
                     >
                       Não consegui
                     </button>
@@ -160,10 +197,20 @@ export function StreaksPanel({
 
       {showAdd && <AddStreakModal onAdd={onAdd} onClose={() => setShowAdd(false)} />}
 
+      {prompt?.type === 'pending' && (
+        <StreakPendingModal
+          streak={prompt.streak}
+          dateKey={prompt.dateKey}
+          todayKey={todayKey}
+          onSuccess={() => handleSuccess(prompt.streak, prompt.dateKey)}
+          onFail={() => handleFailClick(prompt.streak, prompt.dateKey)}
+        />
+      )}
+
       {prompt?.type === 'success' && (
         <StreakSuccessModal
           streak={prompt.streak}
-          dateKey={todayKey}
+          dateKey={prompt.dateKey}
           completed={prompt.completed}
           onClose={() => setPrompt(null)}
         />
@@ -172,9 +219,9 @@ export function StreaksPanel({
       {prompt?.type === 'fail' && (
         <StreakFailModal
           streak={prompt.streak}
-          dateKey={todayKey}
-          onContinue={() => onFail(prompt.streak.id, false)}
-          onReset={() => onFail(prompt.streak.id, true)}
+          dateKey={prompt.dateKey}
+          onContinue={() => onFail(prompt.streak.id, prompt.dateKey, false)}
+          onReset={() => onFail(prompt.streak.id, prompt.dateKey, true)}
           onClose={() => setPrompt(null)}
         />
       )}

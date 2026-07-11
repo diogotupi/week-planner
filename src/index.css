@@ -1291,6 +1291,10 @@ body {
   margin-top: 0.75rem;
 }
 
+.streak-pending-actions {
+  margin-top: 1rem;
+}
+
 .streak-btn {
   flex: 1;
   min-width: 120px;
