@@ -27,6 +27,7 @@ import {
   snapshotLeroLero,
 } from '../utils';
 import { apiFetch, isSyncEnabled } from './api';
+import { repairStreaks } from './streakUtils';
 
 const LEGACY_STORAGE_KEY = 'week-planner-tasks';
 
@@ -77,6 +78,10 @@ function normalizeStreak(raw: unknown): Streak | null {
     status,
     lastCheckInDate: typeof s.lastCheckInDate === 'string' ? s.lastCheckInDate : null,
     lastCheckInResult,
+    lastCheckInAt: typeof s.lastCheckInAt === 'number' ? s.lastCheckInAt : undefined,
+    successDates: Array.isArray(s.successDates)
+      ? s.successDates.filter((date): date is string => typeof date === 'string')
+      : undefined,
     createdDateKey: typeof s.createdDateKey === 'string' ? s.createdDateKey : getDateKey(),
     completedDateKey: typeof s.completedDateKey === 'string' ? s.completedDateKey : undefined,
   };
@@ -84,7 +89,11 @@ function normalizeStreak(raw: unknown): Streak | null {
 
 export function normalizeStreaks(raw: unknown): Streak[] {
   if (!Array.isArray(raw)) return [];
-  return raw.map(normalizeStreak).filter((s): s is Streak => s !== null);
+  const todayKey = getDateKey();
+  return repairStreaks(
+    raw.map(normalizeStreak).filter((s): s is Streak => s !== null),
+    todayKey,
+  );
 }
 
 function mergeStreaks(local: Streak[], remote: Streak[]): Streak[] {

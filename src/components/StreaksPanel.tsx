@@ -3,6 +3,7 @@ import type { Streak } from '../types';
 import {
   getNextCheckInDate,
   getPendingCheckInDate,
+  getStreakCheckInLabel,
 } from '../lib/streakUtils';
 import { formatDateLabel } from '../utils';
 import { AddStreakModal } from './AddStreakModal';
@@ -16,6 +17,7 @@ interface StreaksPanelProps {
   onAdd: (title: string, targetDays: number) => void;
   onSuccess: (id: string, dateKey: string) => void;
   onFail: (id: string, dateKey: string, reset: boolean) => void;
+  onReassignToday: (id: string) => void;
   onRemove: (id: string) => void;
 }
 
@@ -42,6 +44,7 @@ export function StreaksPanel({
   onAdd,
   onSuccess,
   onFail,
+  onReassignToday,
   onRemove,
 }: StreaksPanelProps) {
   const [showAdd, setShowAdd] = useState(false);
@@ -78,10 +81,6 @@ export function StreaksPanel({
     setPrompt({ type: 'fail', streak, dateKey });
   }
 
-  function checkedInToday(streak: Streak): boolean {
-    return streak.lastCheckInDate === todayKey;
-  }
-
   return (
     <section className="streaks-panel" aria-label="Streaks">
       <div className="streaks-header">
@@ -106,7 +105,11 @@ export function StreaksPanel({
           {active.map((streak) => {
             const pendingDate = getPendingCheckInDate(streak, todayKey);
             const checkInDate = getNextCheckInDate(streak, todayKey);
-            const doneToday = checkedInToday(streak);
+            const checkInLabel = getStreakCheckInLabel(streak, todayKey);
+            const markedTodayByMistake =
+              streak.lastCheckInDate === todayKey &&
+              streak.lastCheckInResult === 'success' &&
+              checkInDate === null;
             const progress = Math.min(100, (streak.completedDays / streak.targetDays) * 100);
             return (
               <li key={streak.id} className="streak-card">
@@ -121,10 +124,10 @@ export function StreaksPanel({
                           · pendente: {formatDateLabel(pendingDate)}
                         </span>
                       )}
-                      {doneToday && streak.lastCheckInResult === 'success' && (
-                        <span className="streak-today-ok"> · cumprido hoje</span>
+                      {checkInLabel && (
+                        <span className="streak-today-ok"> · {checkInLabel}</span>
                       )}
-                      {doneToday && streak.lastCheckInResult === 'fail' && (
+                      {streak.lastCheckInResult === 'fail' && streak.lastCheckInDate === todayKey && (
                         <span className="streak-today-fail"> · marcado hoje</span>
                       )}
                     </p>
@@ -144,6 +147,15 @@ export function StreaksPanel({
                 <div className="streak-bar" aria-hidden="true">
                   <div className="streak-bar-fill" style={{ width: `${progress}%` }} />
                 </div>
+                {markedTodayByMistake && (
+                  <button
+                    type="button"
+                    className="streak-btn streak-btn-fail streak-reassign-btn"
+                    onClick={() => onReassignToday(streak.id)}
+                  >
+                    Marquei ontem por engano
+                  </button>
+                )}
                 {checkInDate && (
                   <div className="streak-actions">
                     <button

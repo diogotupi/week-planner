@@ -69,6 +69,7 @@ export function WeekPlanner({
     addStreak,
     markStreakSuccess,
     markStreakFail,
+    reassignStreakTodayCheckIn,
     removeStreak,
   } = useTasks(username);
 
@@ -350,6 +351,7 @@ export function WeekPlanner({
         onAdd={addStreak}
         onSuccess={markStreakSuccess}
         onFail={markStreakFail}
+        onReassignToday={reassignStreakTodayCheckIn}
         onRemove={removeStreak}
       />
 

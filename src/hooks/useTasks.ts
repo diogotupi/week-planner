@@ -21,7 +21,7 @@ import {
   getWeekKey,
   pruneTaskTimerForTasks,
 } from '../utils';
-import { getNextCheckInDate } from '../lib/streakUtils';
+import { getNextCheckInDate, repairStreaks, reassignTodayCheckInToYesterday, resolveCheckInDate } from '../lib/streakUtils';
 
 export type UpdateScope = 'single' | 'all';
 
@@ -73,7 +73,7 @@ export function useTasks(username: string) {
       setLeroLero(data.leroLero);
       setTaskTimer(pruneTaskTimerForTasks(data.taskTimer, data.tasks));
       setPreferences(data.preferences);
-      setStreaks(data.streaks);
+      setStreaks(repairStreaks(data.streaks, getDateKey()));
       setTodayKey(getDateKey());
       setLoading(false);
       skipSaveRef.current = false;
@@ -512,51 +512,76 @@ export function useTasks(username: string) {
   }, []);
 
   const markStreakSuccess = useCallback((id: string, dateKey: string) => {
+    const now = Date.now();
     setStreaks((prev) =>
       prev.map((streak) => {
         if (streak.id !== id || streak.status !== 'active') return streak;
         const today = getDateKey();
         const expectedDate = getNextCheckInDate(streak, today);
-        if (!expectedDate || dateKey !== expectedDate) return streak;
-        if (streak.lastCheckInDate === dateKey && streak.lastCheckInResult === 'success') {
+        if (!expectedDate) return streak;
+
+        const effectiveDate = resolveCheckInDate(streak, today, dateKey, new Date(now));
+        if (effectiveDate !== expectedDate) return streak;
+        if (streak.lastCheckInDate === effectiveDate && streak.lastCheckInResult === 'success') {
           return streak;
         }
 
         const nextDays = streak.completedDays + 1;
+        const successDates = [...(streak.successDates ?? []), effectiveDate];
         if (nextDays >= streak.targetDays) {
           return {
             ...streak,
             completedDays: nextDays,
             status: 'completed',
-            lastCheckInDate: dateKey,
+            lastCheckInDate: effectiveDate,
             lastCheckInResult: 'success',
-            completedDateKey: dateKey,
+            lastCheckInAt: now,
+            successDates,
+            completedDateKey: effectiveDate,
           };
         }
 
         return {
           ...streak,
           completedDays: nextDays,
-          lastCheckInDate: dateKey,
+          lastCheckInDate: effectiveDate,
           lastCheckInResult: 'success',
+          lastCheckInAt: now,
+          successDates,
         };
       }),
     );
   }, []);
 
   const markStreakFail = useCallback((id: string, dateKey: string, reset: boolean) => {
+    const now = Date.now();
     setStreaks((prev) =>
       prev.map((streak) => {
         if (streak.id !== id || streak.status !== 'active') return streak;
         const today = getDateKey();
         const expectedDate = getNextCheckInDate(streak, today);
-        if (!expectedDate || dateKey !== expectedDate) return streak;
+        if (!expectedDate) return streak;
+
+        const effectiveDate = resolveCheckInDate(streak, today, dateKey, new Date(now));
+        if (effectiveDate !== expectedDate) return streak;
         return {
           ...streak,
           completedDays: reset ? 0 : streak.completedDays,
-          lastCheckInDate: dateKey,
+          lastCheckInDate: effectiveDate,
           lastCheckInResult: 'fail',
+          lastCheckInAt: now,
+          successDates: reset ? [] : streak.successDates,
         };
+      }),
+    );
+  }, []);
+
+  const reassignStreakTodayCheckIn = useCallback((id: string) => {
+    const today = getDateKey();
+    setStreaks((prev) =>
+      prev.map((streak) => {
+        if (streak.id !== id) return streak;
+        return reassignTodayCheckInToYesterday(streak, today) ?? streak;
       }),
     );
   }, []);
@@ -593,6 +618,7 @@ export function useTasks(username: string) {
     addStreak,
     markStreakSuccess,
     markStreakFail,
+    reassignStreakTodayCheckIn,
     removeStreak,
     preferences,
     setPreferences,

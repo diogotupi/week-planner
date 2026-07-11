@@ -59,6 +59,10 @@ export interface Streak {
   /** Última data em que houve check-in (sucesso ou falha). */
   lastCheckInDate: string | null;
   lastCheckInResult: StreakCheckInResult | null;
+  /** Horário do último check-in (para detectar marcação após meia-noite). */
+  lastCheckInAt?: number;
+  /** Datas em que houve check-in de sucesso na tentativa atual. */
+  successDates?: string[];
   createdDateKey: string;
   completedDateKey?: string;
 }

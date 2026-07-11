@@ -1295,6 +1295,11 @@ body {
   margin-top: 1rem;
 }
 
+.streak-reassign-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
 .streak-btn {
   flex: 1;
   min-width: 120px;
